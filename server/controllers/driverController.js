@@ -21,7 +21,6 @@ export const applyAsDriver = async (req, res) => {
       });
     }
 
-    // Check existing driver profile
     const existingDriver = await Driver.findOne({
       user: req.user._id,
     });
@@ -33,22 +32,20 @@ export const applyAsDriver = async (req, res) => {
       });
     }
 
-    // Create driver
     const driver = await Driver.create({
       user: req.user._id,
-      licenseNumber,
+      licenseNumber: licenseNumber.trim(),
       licenseExpiry,
       vehicle: {
         type,
-        brand,
-        model,
+        brand: brand.trim(),
+        model: model.trim(),
         year,
-        color,
-        registrationNumber,
+        color: color.trim(),
+        registrationNumber: registrationNumber.trim().toUpperCase(),
       },
     });
 
-    // Update user role
     await User.findByIdAndUpdate(req.user._id, {
       role: "driver",
     });
@@ -64,6 +61,85 @@ export const applyAsDriver = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error while submitting driver application",
+    });
+  }
+};
+
+export const getDriverApplications = async (req, res) => {
+  try {
+    const drivers = await Driver.find()
+      .populate("user", "name email phone avatar createdAt")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: drivers.length,
+      drivers,
+    });
+  } catch (error) {
+    console.error("Get driver applications error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching driver applications",
+    });
+  }
+};
+
+export const updateDriverStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, rejectionReason } = req.body;
+
+    const allowedStatuses = ["approved", "rejected", "suspended"];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid driver status",
+      });
+    }
+
+    const driver = await Driver.findById(id);
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver application not found",
+      });
+    }
+
+    driver.status = status;
+
+    if (status === "rejected") {
+      driver.rejectionReason =
+        rejectionReason?.trim() || "Application rejected by administrator";
+
+      driver.isAvailable = false;
+    }
+
+    if (status === "approved") {
+      driver.rejectionReason = "";
+      driver.isAvailable = false;
+    }
+
+    if (status === "suspended") {
+      driver.isAvailable = false;
+    }
+
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Driver application ${status}`,
+      driver,
+    });
+  } catch (error) {
+    console.error("Update driver status error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating driver status",
     });
   }
 };
