@@ -43,6 +43,7 @@ const driverSchema = new mongoose.Schema(
       year: {
         type: Number,
         required: [true, "Vehicle year is required"],
+        min: 1900,
       },
 
       color: {
@@ -77,14 +78,15 @@ const driverSchema = new mongoose.Schema(
     },
 
     currentLocation: {
-      latitude: {
-        type: Number,
-        default: null,
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
       },
 
-      longitude: {
-        type: Number,
-        default: null,
+      coordinates: {
+        type: [Number],
+        default: undefined,
       },
 
       updatedAt: {
@@ -110,6 +112,21 @@ const driverSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+/*
+ * MongoDB geospatial index.
+ *
+ * Coordinates are stored as:
+ *
+ * [longitude, latitude]
+ *
+ * Example:
+ *
+ * [90.4258, 23.7806]
+ */
+driverSchema.index({
+  currentLocation: "2dsphere",
+});
 
 const Driver = mongoose.model("Driver", driverSchema);
 

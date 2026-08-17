@@ -1,53 +1,101 @@
 import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 
-import protect from "../middleware/authMiddleware.js";
-import adminOnly from "../middleware/adminMiddleware.js";
-import driverOnly from "../middleware/driverMiddleware.js";
+import connectDB from "./config/db.js";
 
-import {
-  applyAsDriver,
-  getDriverApplications,
-  updateDriverStatus,
-  goOnline,
-  goOffline,
-  updateDriverLocation,
-  getMyDriverProfile,
-} from "../controllers/driverController.js";
+import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import driverRoutes from "./routes/driverRoutes.js";
+import rideRoutes from "./routes/rideRoutes.js";
 
-const router = express.Router();
+dotenv.config();
 
-// ==========================================
-// Driver application
-// ==========================================
+const app = express();
 
-router.post("/apply", protect, applyAsDriver);
+const PORT = process.env.PORT || 8009;
 
 // ==========================================
-// Driver profile
+// Database
 // ==========================================
 
-router.get("/me", protect, driverOnly, getMyDriverProfile);
+connectDB();
 
 // ==========================================
-// Driver availability
+// Middleware
 // ==========================================
 
-router.patch("/go-online", protect, driverOnly, goOnline);
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
-router.patch("/go-offline", protect, driverOnly, goOffline);
+app.use(express.json());
+
+app.use(
+  express.urlencoded({
+    extended: true,
+  }),
+);
 
 // ==========================================
-// Driver location
+// Health Check
 // ==========================================
 
-router.patch("/location", protect, driverOnly, updateDriverLocation);
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Welcome to Gontobbo API",
+    status: "running",
+    port: PORT,
+  });
+});
 
 // ==========================================
-// Admin
+// API Routes
 // ==========================================
 
-router.get("/applications", protect, adminOnly, getDriverApplications);
+app.use("/api/auth", authRoutes);
 
-router.patch("/:id/status", protect, adminOnly, updateDriverStatus);
+app.use("/api/users", userRoutes);
 
-export default router;
+app.use("/api/drivers", driverRoutes);
+
+app.use("/api/rides", rideRoutes);
+
+// ==========================================
+// 404 Handler
+// ==========================================
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// ==========================================
+// Global Error Handler
+// ==========================================
+
+app.use((err, req, res, next) => {
+  console.error("Global error:", err);
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal server error",
+    ...(process.env.NODE_ENV === "development" && {
+      stack: err.stack,
+    }),
+  });
+});
+
+// ==========================================
+// Start Server
+// ==========================================
+
+app.listen(PORT, () => {
+  console.log(`Gontobbo server running on port ${PORT}`);
+});
