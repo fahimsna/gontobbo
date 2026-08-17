@@ -143,3 +143,127 @@ export const updateDriverStatus = async (req, res) => {
     });
   }
 };
+
+export const goOnline = async (req, res) => {
+  try {
+    const driver = req.driver;
+
+    driver.isAvailable = true;
+
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "You are now online",
+      isAvailable: driver.isAvailable,
+    });
+  } catch (error) {
+    console.error("Go online error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while going online",
+    });
+  }
+};
+
+export const goOffline = async (req, res) => {
+  try {
+    const driver = req.driver;
+
+    driver.isAvailable = false;
+
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "You are now offline",
+      isAvailable: driver.isAvailable,
+    });
+  } catch (error) {
+    console.error("Go offline error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while going offline",
+    });
+  }
+};
+
+export const updateDriverLocation = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Latitude and longitude are required",
+      });
+    }
+
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      return res.status(400).json({
+        success: false,
+        message: "Latitude and longitude must be numbers",
+      });
+    }
+
+    if (latitude < -90 || latitude > 90) {
+      return res.status(400).json({
+        success: false,
+        message: "Latitude must be between -90 and 90",
+      });
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      return res.status(400).json({
+        success: false,
+        message: "Longitude must be between -180 and 180",
+      });
+    }
+
+    const driver = req.driver;
+
+    driver.currentLocation = {
+      latitude,
+      longitude,
+      updatedAt: new Date(),
+    };
+
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Location updated successfully",
+      location: driver.currentLocation,
+    });
+  } catch (error) {
+    console.error("Update location error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating location",
+    });
+  }
+};
+
+export const getMyDriverProfile = async (req, res) => {
+  try {
+    const driver = await Driver.findById(req.driver._id).populate(
+      "user",
+      "name email phone avatar",
+    );
+
+    return res.status(200).json({
+      success: true,
+      driver,
+    });
+  } catch (error) {
+    console.error("Get driver profile error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching driver profile",
+    });
+  }
+};

@@ -86,6 +86,11 @@ const driverSchema = new mongoose.Schema(
         type: Number,
         default: null,
       },
+
+      updatedAt: {
+        type: Date,
+        default: null,
+      },
     },
 
     rating: {

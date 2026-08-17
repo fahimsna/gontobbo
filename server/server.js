@@ -1,67 +1,53 @@
 import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
 
-import connectDB from "./config/db.js";
-import authRoutes from "./routes/authRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
-import driverRoutes from "./routes/driverRoutes.js";
-import rideRoutes from "./routes/rideRoutes.js";
+import protect from "../middleware/authMiddleware.js";
+import adminOnly from "../middleware/adminMiddleware.js";
+import driverOnly from "../middleware/driverMiddleware.js";
 
-dotenv.config();
+import {
+  applyAsDriver,
+  getDriverApplications,
+  updateDriverStatus,
+  goOnline,
+  goOffline,
+  updateDriverLocation,
+  getMyDriverProfile,
+} from "../controllers/driverController.js";
 
-const app = express();
+const router = express.Router();
 
-// ===============================
-// Middleware
-// ===============================
+// ==========================================
+// Driver application
+// ==========================================
 
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true,
-  }),
-);
+router.post("/apply", protect, applyAsDriver);
 
-app.use(express.json());
+// ==========================================
+// Driver profile
+// ==========================================
 
-// ===============================
-// Routes
-// ===============================
+router.get("/me", protect, driverOnly, getMyDriverProfile);
 
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/drivers", driverRoutes);
-app.use("/api/rides", rideRoutes);
-// ===============================
-// Health Check
-// ===============================
+// ==========================================
+// Driver availability
+// ==========================================
 
-app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Gontobbo API is running",
-  });
-});
+router.patch("/go-online", protect, driverOnly, goOnline);
 
-// ===============================
-// Server
-// ===============================
+router.patch("/go-offline", protect, driverOnly, goOffline);
 
-const PORT = process.env.PORT || 8009;
+// ==========================================
+// Driver location
+// ==========================================
 
-const startServer = async () => {
-  try {
-    await connectDB();
+router.patch("/location", protect, driverOnly, updateDriverLocation);
 
-    app.listen(PORT, () => {
-      console.log(`Gontobbo server running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error("Failed to start server:", error.message);
+// ==========================================
+// Admin
+// ==========================================
 
-    process.exit(1);
-  }
-};
+router.get("/applications", protect, adminOnly, getDriverApplications);
 
-startServer();
+router.patch("/:id/status", protect, adminOnly, updateDriverStatus);
+
+export default router;
