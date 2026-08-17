@@ -23,7 +23,9 @@ const router = express.Router();
 |--------------------------------------------------------------------------
 */
 
-// User applies to become a driver
+/*
+ * POST /api/drivers/apply
+ */
 router.post("/apply", protect, applyAsDriver);
 
 /*
@@ -32,7 +34,9 @@ router.post("/apply", protect, applyAsDriver);
 |--------------------------------------------------------------------------
 */
 
-// Get logged-in driver's profile
+/*
+ * GET /api/drivers/me
+ */
 router.get("/me", protect, driverOnly, getMyDriverProfile);
 
 /*
@@ -41,10 +45,14 @@ router.get("/me", protect, driverOnly, getMyDriverProfile);
 |--------------------------------------------------------------------------
 */
 
-// Driver goes online
+/*
+ * PATCH /api/drivers/go-online
+ */
 router.patch("/go-online", protect, driverOnly, goOnline);
 
-// Driver goes offline
+/*
+ * PATCH /api/drivers/go-offline
+ */
 router.patch("/go-offline", protect, driverOnly, goOffline);
 
 /*
@@ -53,37 +61,45 @@ router.patch("/go-offline", protect, driverOnly, goOffline);
 |--------------------------------------------------------------------------
 */
 
-// Update driver's current location
+/*
+ * PATCH /api/drivers/location
+ */
 router.patch("/location", protect, driverOnly, updateDriverLocation);
 
 /*
 |--------------------------------------------------------------------------
-| NEARBY DRIVER SEARCH
+| NEARBY DRIVERS
 |--------------------------------------------------------------------------
 */
 
-// Find nearby available drivers
-//
-// Example:
-//
-// GET /api/drivers/nearby
-//     ?latitude=23.7806
-//     &longitude=90.4258
-//     &maxDistance=5000
-//     &vehicleType=car
-//
+/*
+ * GET /api/drivers/nearby
+ *
+ * Example:
+ *
+ * /api/drivers/nearby
+ * ?latitude=23.7806
+ * &longitude=90.4125
+ * &maxDistance=5000
+ * &vehicleType=bike
+ */
+
 router.get("/nearby", protect, getNearbyDrivers);
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN DRIVER MANAGEMENT
+| ADMIN
 |--------------------------------------------------------------------------
 */
 
-// Get all driver applications
+/*
+ * GET /api/drivers/applications
+ */
 router.get("/applications", protect, adminOnly, getDriverApplications);
 
-// Approve / reject / suspend driver
+/*
+ * PATCH /api/drivers/:id/status
+ */
 router.patch("/:id/status", protect, adminOnly, updateDriverStatus);
 
 export default router;

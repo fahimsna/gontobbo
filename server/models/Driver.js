@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const driverSchema = new mongoose.Schema(
   {
+    /*
+    |--------------------------------------------------------------------------
+    | USER
+    |--------------------------------------------------------------------------
+    */
+
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -9,56 +15,83 @@ const driverSchema = new mongoose.Schema(
       unique: true,
     },
 
+    /*
+    |--------------------------------------------------------------------------
+    | LICENSE
+    |--------------------------------------------------------------------------
+    */
+
     licenseNumber: {
       type: String,
-      required: [true, "Driving license number is required"],
+      required: true,
       trim: true,
       uppercase: true,
     },
 
     licenseExpiry: {
       type: Date,
-      required: [true, "Driving license expiry date is required"],
+      required: true,
     },
+
+    /*
+    |--------------------------------------------------------------------------
+    | VEHICLE
+    |--------------------------------------------------------------------------
+    */
 
     vehicle: {
       type: {
         type: String,
         enum: ["car", "bike", "cng"],
-        required: [true, "Vehicle type is required"],
+        required: true,
       },
 
+      /*
+       * Optional because the current frontend only asks
+       * for Vehicle Model.
+       */
       brand: {
         type: String,
-        required: [true, "Vehicle brand is required"],
+        default: "Not specified",
         trim: true,
       },
 
       model: {
         type: String,
-        required: [true, "Vehicle model is required"],
+        required: true,
         trim: true,
       },
 
+      /*
+       * Optional.
+       */
       year: {
         type: Number,
-        required: [true, "Vehicle year is required"],
-        min: 1900,
+        default: new Date().getFullYear(),
       },
 
+      /*
+       * Optional.
+       */
       color: {
         type: String,
-        required: [true, "Vehicle color is required"],
+        default: "Not specified",
         trim: true,
       },
 
       registrationNumber: {
         type: String,
-        required: [true, "Vehicle registration number is required"],
+        required: true,
         trim: true,
         uppercase: true,
       },
     },
+
+    /*
+    |--------------------------------------------------------------------------
+    | APPLICATION STATUS
+    |--------------------------------------------------------------------------
+    */
 
     status: {
       type: String,
@@ -72,28 +105,40 @@ const driverSchema = new mongoose.Schema(
       trim: true,
     },
 
+    /*
+    |--------------------------------------------------------------------------
+    | AVAILABILITY
+    |--------------------------------------------------------------------------
+    */
+
     isAvailable: {
       type: Boolean,
       default: false,
     },
 
+    /*
+    |--------------------------------------------------------------------------
+    | CURRENT LOCATION
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | Do NOT create an empty GeoJSON Point.
+    |
+    | A driver gets a location only after GPS/location update.
+    |
+    */
+
     currentLocation: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point",
-      },
-
-      coordinates: {
-        type: [Number],
-        default: undefined,
-      },
-
-      updatedAt: {
-        type: Date,
-        default: null,
-      },
+      type: mongoose.Schema.Types.Mixed,
+      default: undefined,
     },
+
+    /*
+    |--------------------------------------------------------------------------
+    | DRIVER STATISTICS
+    |--------------------------------------------------------------------------
+    */
 
     rating: {
       type: Number,
@@ -114,19 +159,23 @@ const driverSchema = new mongoose.Schema(
 );
 
 /*
- * MongoDB geospatial index.
- *
- * Coordinates are stored as:
- *
- * [longitude, latitude]
- *
- * Example:
- *
- * [90.4258, 23.7806]
- */
+|--------------------------------------------------------------------------
+| GEO INDEX
+|--------------------------------------------------------------------------
+|
+| Used later for finding nearby available drivers.
+|
+*/
+
 driverSchema.index({
   currentLocation: "2dsphere",
 });
+
+/*
+|--------------------------------------------------------------------------
+| MODEL
+|--------------------------------------------------------------------------
+*/
 
 const Driver = mongoose.model("Driver", driverSchema);
 

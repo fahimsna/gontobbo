@@ -6,11 +6,12 @@ import driverOnly from "../middleware/driverMiddleware.js";
 import {
   createRide,
   getMyRides,
+  getActiveRide,
   getRideById,
   cancelRide,
   getAvailableRides,
-  acceptRide,
   getDriverRides,
+  acceptRide,
   markDriverArriving,
   startRide,
   completeRide,
@@ -20,44 +21,57 @@ const router = express.Router();
 
 /*
 |--------------------------------------------------------------------------
-| Passenger
+| PASSENGER
 |--------------------------------------------------------------------------
 */
 
-// Create ride
 router.post("/", protect, createRide);
 
-// My rides
-router.get("/my-rides", protect, getMyRides);
+router.get("/my", protect, getMyRides);
 
-// Single ride
-router.get("/:id", protect, getRideById);
-
-// Cancel ride
-router.patch("/:id/cancel", protect, cancelRide);
+router.get("/active", protect, getActiveRide);
 
 /*
 |--------------------------------------------------------------------------
-| Driver
+| DRIVER
+|--------------------------------------------------------------------------
+|
+| IMPORTANT:
+| These MUST come before /:id.
+|
 |--------------------------------------------------------------------------
 */
 
-// Available ride requests
-router.get("/driver/available", protect, driverOnly, getAvailableRides);
+router.get("/available", protect, driverOnly, getAvailableRides);
 
-// Accept ride
-router.patch("/driver/:id/accept", protect, driverOnly, acceptRide);
+router.get("/driver/my", protect, driverOnly, getDriverRides);
 
-// Driver active rides
-router.get("/driver/my-rides", protect, driverOnly, getDriverRides);
+/*
+|--------------------------------------------------------------------------
+| RIDE ACTIONS
+|--------------------------------------------------------------------------
+*/
 
-// Driver arriving
-router.patch("/driver/:id/arriving", protect, driverOnly, markDriverArriving);
+router.patch("/:id/cancel", protect, cancelRide);
 
-// Start ride
-router.patch("/driver/:id/start", protect, driverOnly, startRide);
+router.patch("/:id/accept", protect, driverOnly, acceptRide);
 
-// Complete ride
-router.patch("/driver/:id/complete", protect, driverOnly, completeRide);
+router.patch("/:id/arriving", protect, driverOnly, markDriverArriving);
+
+router.patch("/:id/start", protect, driverOnly, startRide);
+
+router.patch("/:id/complete", protect, driverOnly, completeRide);
+
+/*
+|--------------------------------------------------------------------------
+| SINGLE RIDE
+|--------------------------------------------------------------------------
+|
+| MUST BE LAST.
+|
+|--------------------------------------------------------------------------
+*/
+
+router.get("/:id", protect, getRideById);
 
 export default router;
