@@ -3,7 +3,7 @@ import express from "express";
 import protect from "../middleware/authMiddleware.js";
 
 import {
-  requestRide,
+  createRide,
   getMyRides,
   getRideById,
   cancelRide,
@@ -11,11 +11,27 @@ import {
 
 const router = express.Router();
 
-router.post("/", protect, requestRide);
+// ==========================================
+// Passenger ride request
+// ==========================================
+
+router.post("/", protect, createRide);
+
+// ==========================================
+// Passenger ride history
+// ==========================================
 
 router.get("/my-rides", protect, getMyRides);
 
+// ==========================================
+// Single ride
+// ==========================================
+
 router.get("/:id", protect, getRideById);
+
+// ==========================================
+// Cancel ride
+// ==========================================
 
 router.patch("/:id/cancel", protect, cancelRide);
 

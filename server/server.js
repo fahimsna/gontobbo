@@ -16,12 +16,6 @@ const app = express();
 const PORT = process.env.PORT || 8009;
 
 // ==========================================
-// Database
-// ==========================================
-
-connectDB();
-
-// ==========================================
 // Middleware
 // ==========================================
 
@@ -85,7 +79,9 @@ app.use((err, req, res, next) => {
 
   res.status(err.status || 500).json({
     success: false,
+
     message: err.message || "Internal server error",
+
     ...(process.env.NODE_ENV === "development" && {
       stack: err.stack,
     }),
@@ -96,6 +92,21 @@ app.use((err, req, res, next) => {
 // Start Server
 // ==========================================
 
-app.listen(PORT, () => {
-  console.log(`Gontobbo server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    // Connect to MongoDB first
+    await connectDB();
+
+    // Start Express only after
+    // successful database connection
+    app.listen(PORT, () => {
+      console.log(`Gontobbo server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start Gontobbo server:", error.message);
+
+    process.exit(1);
+  }
+};
+
+startServer();

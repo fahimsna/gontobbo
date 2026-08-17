@@ -1,11 +1,39 @@
 import mongoose from "mongoose";
 
+const locationSchema = new mongoose.Schema(
+  {
+    address: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        required: true,
+        default: "Point",
+      },
+
+      coordinates: {
+        type: [Number],
+        required: true,
+      },
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const rideSchema = new mongoose.Schema(
   {
     passenger: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     driver: {
@@ -15,39 +43,13 @@ const rideSchema = new mongoose.Schema(
     },
 
     pickup: {
-      address: {
-        type: String,
-        required: [true, "Pickup address is required"],
-        trim: true,
-      },
-
-      latitude: {
-        type: Number,
-        required: [true, "Pickup latitude is required"],
-      },
-
-      longitude: {
-        type: Number,
-        required: [true, "Pickup longitude is required"],
-      },
+      type: locationSchema,
+      required: true,
     },
 
-    destination: {
-      address: {
-        type: String,
-        required: [true, "Destination address is required"],
-        trim: true,
-      },
-
-      latitude: {
-        type: Number,
-        required: [true, "Destination latitude is required"],
-      },
-
-      longitude: {
-        type: Number,
-        required: [true, "Destination longitude is required"],
-      },
+    dropoff: {
+      type: locationSchema,
+      required: true,
     },
 
     vehicleType: {
@@ -56,55 +58,46 @@ const rideSchema = new mongoose.Schema(
       required: true,
     },
 
-    distance: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-
-    estimatedDuration: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-
-    estimatedFare: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-
-    finalFare: {
-      type: Number,
-      default: null,
-      min: 0,
-    },
-
     status: {
       type: String,
       enum: [
-        "requested",
         "searching",
         "accepted",
-        "driver_arriving",
-        "driver_arrived",
-        "in_progress",
+        "arrived",
+        "started",
         "completed",
         "cancelled",
       ],
-      default: "requested",
+      default: "searching",
+      index: true,
     },
 
-    cancellationReason: {
-      type: String,
-      default: "",
-      trim: true,
+    fare: {
+      estimated: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      final: {
+        type: Number,
+        default: null,
+        min: 0,
+      },
     },
 
-    cancelledBy: {
-      type: String,
-      enum: ["passenger", "driver", "system", null],
-      default: null,
+    distance: {
+      estimated: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      actual: {
+        type: Number,
+        default: null,
+        min: 0,
+      },
     },
 
     requestedAt: {
@@ -131,11 +124,31 @@ const rideSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    cancellationReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   {
     timestamps: true,
   },
 );
+
+/*
+|--------------------------------------------------------------------------
+| Geospatial indexes
+|--------------------------------------------------------------------------
+*/
+
+rideSchema.index({
+  "pickup.location": "2dsphere",
+});
+
+rideSchema.index({
+  "dropoff.location": "2dsphere",
+});
 
 const Ride = mongoose.model("Ride", rideSchema);
 
