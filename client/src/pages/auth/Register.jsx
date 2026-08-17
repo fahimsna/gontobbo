@@ -1,311 +1,401 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
-  MapPin,
-  Phone,
-  User,
-  Loader2,
-} from "lucide-react";
 
-import api from "../../services/api";
+import { Car, Check, Lock, Mail, MapPin, Phone, User } from "lucide-react";
+
+import { Link, useNavigate } from "react-router-dom";
+
 import { useAuth } from "../../context/AuthContext";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { login } = useAuth();
 
-  const [form, setForm] = useState({
+  const { register } = useAuth();
+
+  const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
+    role: "passenger",
   });
-
-  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState("");
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+  /*
+  |--------------------------------------------------------------------------
+  | Input handler
+  |--------------------------------------------------------------------------
+  */
 
-    setError("");
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /*
+  |--------------------------------------------------------------------------
+  | Submit
+  |--------------------------------------------------------------------------
+  */
 
-    if (!form.name || !form.email || !form.phone || !form.password) {
-      setError("Please fill in all required fields.");
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    setError("");
+
+    /*
+      |--------------------------------------------------------------------------
+      | Password validation
+      |--------------------------------------------------------------------------
+      */
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+
       return;
     }
 
-    if (form.password.length < 6) {
-      setError("Password must contain at least 6 characters.");
-      return;
-    }
-
-    if (form.password !== form.confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
+
       return;
     }
 
     try {
       setLoading(true);
-      setError("");
 
-      const response = await api.post("/auth/register", {
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        password: form.password,
+      await register({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        role: formData.role,
       });
 
-      const data = response.data;
+      /*
+        |--------------------------------------------------------------------------
+        | Redirect based on role
+        |--------------------------------------------------------------------------
+        */
 
-      login(data.token, data.user);
-
-      navigate("/passenger");
+      if (formData.role === "driver") {
+        navigate("/driver/apply");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Registration failed. Please try again.",
-      );
+      setError(err.message || "Registration failed.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="grid min-h-screen lg:grid-cols-2">
-        {/* LEFT */}
+    <div className="min-h-screen bg-slate-950 px-4 py-8">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
+        <div className="grid w-full overflow-hidden rounded-3xl bg-white shadow-2xl lg:grid-cols-2">
+          {/* Left */}
 
-        <div className="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-          <Link to="/" className="flex w-fit items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-950">
-              <MapPin size={20} />
+          <div className="hidden bg-slate-900 p-10 text-white lg:block">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-950">
+                <MapPin size={22} />
+              </div>
+
+              <div>
+                <p className="text-lg font-bold">Gontobbo</p>
+
+                <p className="text-xs text-slate-400">
+                  Your journey, simplified.
+                </p>
+              </div>
             </div>
 
-            <span className="text-xl font-bold">Gontobbo</span>
-          </Link>
+            <div className="mt-24">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
+                Get started
+              </p>
 
-          <div className="max-w-lg">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Start your journey
-            </p>
+              <h1 className="mt-4 text-4xl font-bold leading-tight">
+                Move around
+                <br />
+                Dhaka with
+                <br />
+                confidence.
+              </h1>
 
-            <h1 className="mt-5 text-5xl font-bold leading-tight">
-              One account.
-              <span className="block text-slate-500">Every destination.</span>
-            </h1>
+              <p className="mt-6 max-w-md text-sm leading-7 text-slate-400">
+                Create your Gontobbo account and make your next journey easier.
+              </p>
 
-            <p className="mt-6 max-w-md leading-7 text-slate-400">
-              Create your Gontobbo account and experience a simpler way to move
-              around the city.
-            </p>
+              <div className="mt-10 space-y-4">
+                {[
+                  "Fast ride booking",
+                  "Real-time driver tracking",
+                  "Transparent fares",
+                ].map((feature) => (
+                  <div key={feature} className="flex items-center gap-3">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-950">
+                      <Check size={14} />
+                    </div>
+
+                    <span className="text-sm text-slate-300">{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <p className="text-xs text-slate-600">
-            Gontobbo · Smart mobility for everyday journeys
-          </p>
-        </div>
+          {/* Right */}
 
-        {/* RIGHT */}
+          <div className="p-6 sm:p-10">
+            <div className="mx-auto max-w-md">
+              <div className="mb-8">
+                <div className="mb-5 flex items-center gap-3 lg:hidden">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+                    <MapPin size={20} />
+                  </div>
 
-        <div className="flex items-center justify-center px-5 py-10 sm:px-8">
-          <div className="w-full max-w-md">
-            <Link
-              to="/"
-              className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-950 lg:hidden"
-            >
-              <ArrowLeft size={16} />
-              Back to home
-            </Link>
+                  <span className="font-bold">Gontobbo</span>
+                </div>
 
-            <div className="mb-7">
-              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white lg:hidden">
-                <MapPin size={21} />
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Create account
+                </p>
+
+                <h2 className="mt-2 text-3xl font-bold tracking-tight">
+                  Join Gontobbo
+                </h2>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Choose how you want to use Gontobbo.
+                </p>
               </div>
 
-              <h2 className="text-3xl font-bold tracking-tight">
-                Create your account
-              </h2>
+              {error && (
+                <div className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                  {error}
+                </div>
+              )}
 
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Join Gontobbo and start your journey.
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Role */}
+
+                <div>
+                  <label className="mb-3 block text-sm font-semibold text-slate-700">
+                    I want to
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((previous) => ({
+                          ...previous,
+                          role: "passenger",
+                        }))
+                      }
+                      className={`rounded-2xl border-2 p-4 text-left transition ${
+                        formData.role === "passenger"
+                          ? "border-slate-950 bg-slate-50"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <MapPin size={21} />
+
+                        {formData.role === "passenger" && <Check size={18} />}
+                      </div>
+
+                      <p className="mt-3 text-sm font-bold">Ride</p>
+
+                      <p className="mt-1 text-xs text-slate-400">Book rides</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((previous) => ({
+                          ...previous,
+                          role: "driver",
+                        }))
+                      }
+                      className={`rounded-2xl border-2 p-4 text-left transition ${
+                        formData.role === "driver"
+                          ? "border-slate-950 bg-slate-50"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Car size={21} />
+
+                        {formData.role === "driver" && <Check size={18} />}
+                      </div>
+
+                      <p className="mt-3 text-sm font-bold">Drive</p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        Become a driver
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Name */}
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Full name
+                  </label>
+
+                  <div className="relative">
+                    <User
+                      size={17}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Your full name"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-4 text-sm outline-none focus:border-slate-950 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Email
+                  </label>
+
+                  <div className="relative">
+                    <Mail
+                      size={17}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      placeholder="you@example.com"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-4 text-sm outline-none focus:border-slate-950 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone */}
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Phone
+                  </label>
+
+                  <div className="relative">
+                    <Phone
+                      size={17}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="01XXXXXXXXX"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-4 text-sm outline-none focus:border-slate-950 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Password
+                  </label>
+
+                  <div className="relative">
+                    <Lock
+                      size={17}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      name="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                      placeholder="Minimum 6 characters"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-4 text-sm outline-none focus:border-slate-950 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Confirm */}
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Confirm password
+                  </label>
+
+                  <div className="relative">
+                    <Lock
+                      size={17}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+
+                    <input
+                      name="confirmPassword"
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      required
+                      placeholder="Repeat your password"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-4 text-sm outline-none focus:border-slate-950 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Submit */}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-xl bg-slate-950 py-4 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading
+                    ? "Creating account..."
+                    : formData.role === "driver"
+                      ? "Create driver account"
+                      : "Create passenger account"}
+                </button>
+              </form>
+
+              <p className="mt-6 text-center text-sm text-slate-500">
+                Already have an account?{" "}
+                <Link
+                  to="/login"
+                  className="font-bold text-slate-950 hover:underline"
+                >
+                  Sign in
+                </Link>
               </p>
             </div>
-
-            {error && (
-              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Full name
-                </label>
-
-                <div className="relative">
-                  <User
-                    size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    type="text"
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    placeholder="Fahim Shahriar"
-                    autoComplete="name"
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5"
-                  />
-                </div>
-              </div>
-
-              {/* Email */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Email address
-                </label>
-
-                <div className="relative">
-                  <Mail
-                    size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    type="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5"
-                  />
-                </div>
-              </div>
-
-              {/* Phone */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Phone number
-                </label>
-
-                <div className="relative">
-                  <Phone
-                    size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                    placeholder="017XXXXXXXX"
-                    autoComplete="tel"
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5"
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Password
-                </label>
-
-                <div className="relative">
-                  <Lock
-                    size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder="At least 6 characters"
-                    autoComplete="new-password"
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-12 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm */}
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Confirm password
-                </label>
-
-                <div className="relative">
-                  <Lock
-                    size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={form.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="Repeat your password"
-                    autoComplete="new-password"
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading && <Loader2 size={17} className="animate-spin" />}
-
-                {loading ? "Creating account..." : "Create account"}
-              </button>
-            </form>
-
-            <p className="mt-7 text-center text-sm text-slate-500">
-              Already have an account?{" "}
-              <Link
-                to="/login"
-                className="font-bold text-slate-950 hover:underline"
-              >
-                Sign in
-              </Link>
-            </p>
           </div>
         </div>
       </div>

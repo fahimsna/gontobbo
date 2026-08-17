@@ -1,20 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
-  MapPin,
-  Loader2,
-} from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Navigation } from "lucide-react";
 
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+
   const { login } = useAuth();
 
   const [form, setForm] = useState({
@@ -28,45 +21,69 @@ export default function Login() {
 
   const [error, setError] = useState("");
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
-    setError("");
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
-    if (!form.email || !form.password) {
-      setError("Please enter your email and password.");
-      return;
-    }
+    setError("");
+    setLoading(true);
 
     try {
-      setLoading(true);
-      setError("");
-
       const response = await api.post("/auth/login", form);
 
       const data = response.data;
 
+      console.log("LOGIN RESPONSE:", data);
+
+      /*
+      |--------------------------------------------------------------------------
+      | Store authentication
+      |--------------------------------------------------------------------------
+      */
+
       login(data.token, data.user);
+
+      /*
+      |--------------------------------------------------------------------------
+      | Redirect based on role
+      |--------------------------------------------------------------------------
+      */
 
       const role = data.user?.role;
 
-      if (role === "admin") {
-        navigate("/admin");
-      } else if (role === "driver") {
-        navigate("/driver");
+      if (role === "driver") {
+        navigate("/driver/dashboard", {
+          replace: true,
+        });
+      } else if (role === "admin") {
+        navigate("/admin/dashboard", {
+          replace: true,
+        });
       } else {
-        navigate("/passenger");
+        /*
+        |--------------------------------------------------------------------------
+        | Passenger
+        |--------------------------------------------------------------------------
+        */
+
+        navigate("/dashboard", {
+          replace: true,
+        });
       }
-    } catch (err) {
+    } catch (error) {
+      console.error("Login error:", error);
+
       setError(
-        err.response?.data?.message || "Login failed. Please try again.",
+        error?.response?.data?.message ||
+          "Login failed. Please check your email and password.",
       );
     } finally {
       setLoading(false);
@@ -74,67 +91,42 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="grid min-h-screen lg:grid-cols-2">
-        {/* LEFT */}
+    <div className="min-h-screen bg-slate-950 px-4 py-8">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md items-center">
+        <div className="w-full">
+          {/* Logo */}
 
-        <div className="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-          <Link to="/" className="flex w-fit items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-950">
-              <MapPin size={20} />
-            </div>
-
-            <span className="text-xl font-bold">Gontobbo</span>
-          </Link>
-
-          <div className="max-w-lg">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Welcome back
-            </p>
-
-            <h1 className="mt-5 text-5xl font-bold leading-tight">
-              Your next journey starts here.
-            </h1>
-
-            <p className="mt-6 max-w-md leading-7 text-slate-400">
-              Sign in to request rides, manage your trips and stay connected
-              with your Gontobbo journey.
-            </p>
-          </div>
-
-          <p className="text-xs text-slate-600">
-            Gontobbo · Smart mobility for everyday journeys
-          </p>
-        </div>
-
-        {/* RIGHT */}
-
-        <div className="flex items-center justify-center px-5 py-10 sm:px-8">
-          <div className="w-full max-w-md">
-            <Link
-              to="/"
-              className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-950 lg:hidden"
-            >
-              <ArrowLeft size={16} />
-              Back to home
-            </Link>
-
-            <div className="mb-8">
-              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white lg:hidden">
-                <MapPin size={21} />
+          <div className="mb-8 text-center">
+            <Link to="/" className="inline-flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-950">
+                <Navigation size={21} />
               </div>
 
-              <h2 className="text-3xl font-bold tracking-tight">
+              <span className="text-xl font-bold text-white">Gontobbo</span>
+            </Link>
+          </div>
+
+          {/* Card */}
+
+          <div className="rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mb-8">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
                 Welcome back
-              </h2>
+              </p>
+
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+                Sign in to Gontobbo
+              </h1>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Sign in to continue to Gontobbo.
+                Access your rides and manage your journey.
               </p>
             </div>
 
+            {/* Error */}
+
             {error && (
-              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <div className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
                 {error}
               </div>
             )}
@@ -143,24 +135,29 @@ export default function Login() {
               {/* Email */}
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label
+                  htmlFor="email"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
                   Email address
                 </label>
 
                 <div className="relative">
                   <Mail
                     size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
                   />
 
                   <input
-                    type="email"
+                    id="email"
                     name="email"
+                    type="email"
                     value={form.email}
                     onChange={handleChange}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5"
+                    required
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
                   />
                 </div>
               </div>
@@ -168,48 +165,55 @@ export default function Login() {
               {/* Password */}
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                <label
+                  htmlFor="password"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
                   Password
                 </label>
 
                 <div className="relative">
                   <Lock
                     size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
                   />
 
                   <input
-                    type={showPassword ? "text" : "password"}
+                    id="password"
                     name="password"
+                    type={showPassword ? "text" : "password"}
                     value={form.password}
                     onChange={handleChange}
                     placeholder="Enter your password"
                     autoComplete="current-password"
-                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-12 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-4 focus:ring-slate-950/5"
+                    required
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-11 pr-12 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
                   />
 
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    onClick={() => setShowPassword((previous) => !previous)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
 
+              {/* Submit */}
+
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-xl bg-slate-950 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading && <Loader2 size={17} className="animate-spin" />}
-
                 {loading ? "Signing in..." : "Sign in"}
               </button>
             </form>
 
-            <p className="mt-8 text-center text-sm text-slate-500">
+            {/* Register */}
+
+            <p className="mt-7 text-center text-sm text-slate-500">
               Don't have an account?{" "}
               <Link
                 to="/register"
@@ -219,6 +223,10 @@ export default function Login() {
               </Link>
             </p>
           </div>
+
+          <p className="mt-6 text-center text-xs text-slate-500">
+            © 2026 Gontobbo. Move with purpose.
+          </p>
         </div>
       </div>
     </div>

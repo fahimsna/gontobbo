@@ -1,19 +1,15 @@
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  GeoJSON,
-  useMap,
-} from "react-leaflet";
-
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
 
-// Leaflet marker fix for Vite
+/*
+|--------------------------------------------------------------------------
+| Fix Leaflet marker icons
+|--------------------------------------------------------------------------
+*/
+
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -22,138 +18,220 @@ delete L.Icon.Default.prototype._getIconUrl;
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
+
   iconUrl: markerIcon,
+
   shadowUrl: markerShadow,
 });
 
-const DHAKA_CENTER = [23.7806, 90.4258];
-
 /*
 |--------------------------------------------------------------------------
-| Automatically move map to a location
+| MapView
 |--------------------------------------------------------------------------
 */
 
-function MapCenterUpdater({ center }) {
-  const map = useMap();
+export default function MapView({
+  pickup = null,
+  destination = null,
+  route = null,
+  onMapClick,
+}) {
+  const mapContainerRef = useRef(null);
+
+  const mapRef = useRef(null);
+
+  const pickupMarkerRef = useRef(null);
+
+  const destinationMarkerRef = useRef(null);
+
+  const routeLayerRef = useRef(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Create map
+  |--------------------------------------------------------------------------
+  */
 
   useEffect(() => {
-    if (!center) return;
+    if (!mapContainerRef.current || mapRef.current) {
+      return;
+    }
 
-    map.flyTo(center, 14, {
-      duration: 0.8,
+    const map = L.map(mapContainerRef.current, {
+      center: [23.8103, 90.4125],
+
+      zoom: 12,
+
+      zoomControl: true,
     });
-  }, [center, map]);
 
-  return null;
-}
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 
-/*
-|--------------------------------------------------------------------------
-| Automatically fit the route inside the map
-|--------------------------------------------------------------------------
-*/
+      maxZoom: 19,
+    }).addTo(map);
 
-function RouteBounds({ route }) {
-  const map = useMap();
+    mapRef.current = map;
+
+    /*
+    |--------------------------------------------------------------------------
+    | Map click
+    |--------------------------------------------------------------------------
+    */
+
+    if (onMapClick) {
+      map.on("click", (event) => {
+        onMapClick({
+          latitude: event.latlng.lat,
+
+          longitude: event.latlng.lng,
+        });
+      });
+    }
+
+    return () => {
+      map.remove();
+
+      mapRef.current = null;
+    };
+  }, [onMapClick]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Pickup marker
+  |--------------------------------------------------------------------------
+  */
 
   useEffect(() => {
-    if (!route?.geometry) return;
+    const map = mapRef.current;
 
-    const geoJsonLayer = L.geoJSON(route.geometry);
+    if (!map) {
+      return;
+    }
 
-    const bounds = geoJsonLayer.getBounds();
+    if (pickupMarkerRef.current) {
+      map.removeLayer(pickupMarkerRef.current);
+
+      pickupMarkerRef.current = null;
+    }
+
+    if (!pickup) {
+      return;
+    }
+
+    const marker = L.marker([pickup.latitude, pickup.longitude])
+      .addTo(map)
+      .bindPopup("<strong>Pickup</strong>");
+
+    pickupMarkerRef.current = marker;
+  }, [pickup]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Destination marker
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map) {
+      return;
+    }
+
+    if (destinationMarkerRef.current) {
+      map.removeLayer(destinationMarkerRef.current);
+
+      destinationMarkerRef.current = null;
+    }
+
+    if (!destination) {
+      return;
+    }
+
+    const marker = L.marker([destination.latitude, destination.longitude])
+      .addTo(map)
+      .bindPopup("<strong>Destination</strong>");
+
+    destinationMarkerRef.current = marker;
+  }, [destination]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Route
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map) {
+      return;
+    }
+
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+
+      routeLayerRef.current = null;
+    }
+
+    if (!route?.geometry) {
+      return;
+    }
+
+    const layer = L.geoJSON(route.geometry, {
+      style: {
+        weight: 5,
+
+        opacity: 0.9,
+      },
+    }).addTo(map);
+
+    routeLayerRef.current = layer;
+
+    const bounds = layer.getBounds();
 
     if (bounds.isValid()) {
       map.fitBounds(bounds, {
         padding: [50, 50],
       });
     }
-  }, [route, map]);
+  }, [route]);
 
-  return null;
-}
+  /*
+  |--------------------------------------------------------------------------
+  | Fit markers when no route
+  |--------------------------------------------------------------------------
+  */
 
-/*
-|--------------------------------------------------------------------------
-| Map
-|--------------------------------------------------------------------------
-*/
+  useEffect(() => {
+    const map = mapRef.current;
 
-export default function MapView({ pickup, destination, route, drivers = [] }) {
-  const center = pickup || DHAKA_CENTER;
+    if (!map || route) {
+      return;
+    }
 
-  return (
-    <MapContainer
-      center={center}
-      zoom={13}
-      scrollWheelZoom={true}
-      className="h-full w-full"
-    >
-      {/* OpenStreetMap */}
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+    const points = [];
 
-      {/* Move to pickup */}
-      <MapCenterUpdater center={center} />
+    if (pickup) {
+      points.push([pickup.latitude, pickup.longitude]);
+    }
 
-      {/* Fit route */}
-      <RouteBounds route={route} />
+    if (destination) {
+      points.push([destination.latitude, destination.longitude]);
+    }
 
-      {/* Pickup */}
-      {pickup && (
-        <Marker position={pickup}>
-          <Popup>
-            <div className="text-sm">
-              <strong>Pickup</strong>
-              <br />
-              Your pickup location
-            </div>
-          </Popup>
-        </Marker>
-      )}
+    if (points.length === 1) {
+      map.setView(points[0], 15);
+    }
 
-      {/* Destination */}
-      {destination && (
-        <Marker position={destination}>
-          <Popup>
-            <div className="text-sm">
-              <strong>Destination</strong>
-              <br />
-              Your destination
-            </div>
-          </Popup>
-        </Marker>
-      )}
+    if (points.length === 2) {
+      map.fitBounds(L.latLngBounds(points), {
+        padding: [50, 50],
+      });
+    }
+  }, [pickup, destination, route]);
 
-      {/* Actual driving route */}
-      {route?.geometry && (
-        <GeoJSON
-          data={route.geometry}
-          style={{
-            color: "#111827",
-            weight: 5,
-            opacity: 0.9,
-          }}
-        />
-      )}
-
-      {/* Nearby drivers */}
-      {drivers.map((driver) => (
-        <Marker key={driver.id} position={[driver.latitude, driver.longitude]}>
-          <Popup>
-            <div className="text-sm">
-              <strong>{driver.name || "Gontobbo Driver"}</strong>
-
-              <br />
-
-              {driver.vehicleType || "Vehicle"}
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </MapContainer>
-  );
+  return <div ref={mapContainerRef} className="h-full min-h-[350px] w-full" />;
 }

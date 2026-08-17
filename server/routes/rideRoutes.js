@@ -11,28 +11,22 @@ import {
 
 const router = express.Router();
 
-// ==========================================
-// Passenger ride request
-// ==========================================
+/*
+|--------------------------------------------------------------------------
+| Passenger Ride Routes
+|--------------------------------------------------------------------------
+*/
 
+// Create ride
 router.post("/", protect, createRide);
 
-// ==========================================
-// Passenger ride history
-// ==========================================
-
+// Get my rides
 router.get("/my-rides", protect, getMyRides);
 
-// ==========================================
-// Single ride
-// ==========================================
-
+// Get one ride
 router.get("/:id", protect, getRideById);
 
-// ==========================================
 // Cancel ride
-// ==========================================
-
 router.patch("/:id/cancel", protect, cancelRide);
 
 export default router;

@@ -1,222 +1,127 @@
 import Ride from "../models/Ride.js";
-import Driver from "../models/Driver.js";
 
 /*
 |--------------------------------------------------------------------------
-| CREATE RIDE REQUEST
+| Create Ride
 |--------------------------------------------------------------------------
 */
 
 export const createRide = async (req, res) => {
   try {
-    const { pickup, dropoff, vehicleType } = req.body;
+    const {
+      pickup,
+      destination,
+      distance,
+      duration,
+      estimatedFare,
+      vehicleType,
+    } = req.body;
 
-    // ==========================================
-    // Validate pickup
-    // ==========================================
+    // ----------------------------------------------------
+    // Validate pickup and destination
+    // ----------------------------------------------------
 
-    if (!pickup || !pickup.address || !pickup.latitude || !pickup.longitude) {
+    if (!pickup || !destination) {
       return res.status(400).json({
         success: false,
-        message: "Complete pickup information is required",
+        message: "Pickup and destination are required.",
       });
     }
 
-    // ==========================================
-    // Validate dropoff
-    // ==========================================
+    // ----------------------------------------------------
+    // Validate coordinates
+    // ----------------------------------------------------
 
     if (
-      !dropoff ||
-      !dropoff.address ||
-      !dropoff.latitude ||
-      !dropoff.longitude
+      pickup.latitude === undefined ||
+      pickup.longitude === undefined ||
+      destination.latitude === undefined ||
+      destination.longitude === undefined
     ) {
       return res.status(400).json({
         success: false,
-        message: "Complete dropoff information is required",
+        message: "Valid pickup and destination coordinates are required.",
       });
     }
 
-    // ==========================================
-    // Validate vehicle
-    // ==========================================
+    // ----------------------------------------------------
+    // Build readable addresses
+    // ----------------------------------------------------
 
-    if (!["car", "bike", "cng"].includes(vehicleType)) {
-      return res.status(400).json({
-        success: false,
-        message: "Valid vehicle type is required",
-      });
-    }
+    const pickupAddress =
+      typeof pickup.address === "string"
+        ? pickup.address
+        : pickup.displayName || pickup.name || "Pickup location";
 
-    const pickupLat = Number(pickup.latitude);
+    const destinationAddress =
+      typeof destination.address === "string"
+        ? destination.address
+        : destination.displayName || destination.name || "Destination";
 
-    const pickupLng = Number(pickup.longitude);
+    // ----------------------------------------------------
+    // Validate route information
+    // ----------------------------------------------------
 
-    const dropoffLat = Number(dropoff.latitude);
+    const distanceKm = Number(distance || 0);
 
-    const dropoffLng = Number(dropoff.longitude);
+    const durationMinutes = Number(duration || 0);
 
-    if (
-      Number.isNaN(pickupLat) ||
-      Number.isNaN(pickupLng) ||
-      Number.isNaN(dropoffLat) ||
-      Number.isNaN(dropoffLng)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Coordinates must be valid numbers",
-      });
-    }
+    const fare = Number(estimatedFare || 0);
 
-    // ==========================================
-    // Coordinate validation
-    // ==========================================
-
-    if (
-      pickupLat < -90 ||
-      pickupLat > 90 ||
-      dropoffLat < -90 ||
-      dropoffLat > 90
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Latitude must be between -90 and 90",
-      });
-    }
-
-    if (
-      pickupLng < -180 ||
-      pickupLng > 180 ||
-      dropoffLng < -180 ||
-      dropoffLng > 180
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Longitude must be between -180 and 180",
-      });
-    }
-
-    // ==========================================
-    // Check active ride
-    // ==========================================
-
-    const activeRide = await Ride.findOne({
-      passenger: req.user._id,
-
-      status: {
-        $in: ["searching", "accepted", "arrived", "started"],
-      },
-    });
-
-    if (activeRide) {
-      return res.status(409).json({
-        success: false,
-        message: "You already have an active ride",
-        ride: activeRide,
-      });
-    }
-
-    // ==========================================
-    // Find nearby drivers
-    // ==========================================
-
-    const nearbyDrivers = await Driver.find({
-      status: "approved",
-
-      isAvailable: true,
-
-      "vehicle.type": vehicleType,
-
-      currentLocation: {
-        $near: {
-          $geometry: {
-            type: "Point",
-            coordinates: [pickupLng, pickupLat],
-          },
-
-          $maxDistance: 5000,
-        },
-      },
-    })
-      .limit(10)
-      .select("_id user vehicle currentLocation rating totalRides");
-
-    // ==========================================
+    // ----------------------------------------------------
     // Create ride
-    // ==========================================
+    // ----------------------------------------------------
 
     const ride = await Ride.create({
       passenger: req.user._id,
 
       pickup: {
-        address: pickup.address,
-
-        location: {
-          type: "Point",
-
-          coordinates: [pickupLng, pickupLat],
-        },
+        address: pickupAddress,
+        latitude: Number(pickup.latitude),
+        longitude: Number(pickup.longitude),
       },
 
-      dropoff: {
-        address: dropoff.address,
-
-        location: {
-          type: "Point",
-
-          coordinates: [dropoffLng, dropoffLat],
-        },
+      destination: {
+        address: destinationAddress,
+        latitude: Number(destination.latitude),
+        longitude: Number(destination.longitude),
       },
 
-      vehicleType,
+      distanceKm,
 
-      status: "searching",
+      durationMinutes,
+
+      estimatedFare: fare,
+
+      vehicleType: vehicleType || "car",
+
+      status: "requested",
+
+      requestedAt: new Date(),
     });
 
-    // ==========================================
-    // Populate passenger
-    // ==========================================
-
-    await ride.populate("passenger", "name email phone avatar");
+    // ----------------------------------------------------
+    // Response
+    // ----------------------------------------------------
 
     return res.status(201).json({
       success: true,
-
-      message:
-        nearbyDrivers.length > 0
-          ? "Ride requested. Nearby drivers found."
-          : "Ride requested. No nearby drivers are currently available.",
-
+      message: "Ride requested successfully.",
       ride,
-
-      nearbyDrivers: nearbyDrivers.map((driver) => ({
-        id: driver._id,
-
-        user: driver.user,
-
-        vehicle: driver.vehicle,
-
-        rating: driver.rating,
-
-        totalRides: driver.totalRides,
-
-        location: driver.currentLocation,
-      })),
     });
   } catch (error) {
     console.error("Create ride error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Server error while creating ride",
+      message: error.message || "Failed to create ride request.",
     });
   }
 };
 
 /*
 |--------------------------------------------------------------------------
-| GET MY RIDES
+| Get My Rides
 |--------------------------------------------------------------------------
 */
 
@@ -225,7 +130,7 @@ export const getMyRides = async (req, res) => {
     const rides = await Ride.find({
       passenger: req.user._id,
     })
-      .populate("driver", "vehicle rating totalRides currentLocation")
+      .populate("driver", "name email phone")
       .sort({
         createdAt: -1,
       });
@@ -240,44 +145,28 @@ export const getMyRides = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Server error while fetching rides",
+      message: "Failed to fetch rides.",
     });
   }
 };
 
 /*
 |--------------------------------------------------------------------------
-| GET SINGLE RIDE
+| Get Single Ride
 |--------------------------------------------------------------------------
 */
 
 export const getRideById = async (req, res) => {
   try {
-    const ride = await Ride.findById(req.params.id)
-      .populate("passenger", "name email phone avatar")
-      .populate("driver", "user vehicle rating totalRides currentLocation");
+    const ride = await Ride.findOne({
+      _id: req.params.id,
+      passenger: req.user._id,
+    }).populate("driver", "name email phone");
 
     if (!ride) {
       return res.status(404).json({
         success: false,
-        message: "Ride not found",
-      });
-    }
-
-    /*
-     * Only passenger or assigned driver
-     * should be able to see the ride.
-     */
-
-    const isPassenger =
-      ride.passenger?._id.toString() === req.user._id.toString();
-
-    const isDriver = ride.driver?.user?.toString() === req.user._id.toString();
-
-    if (!isPassenger && !isDriver && req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to view this ride",
+        message: "Ride not found.",
       });
     }
 
@@ -290,41 +179,40 @@ export const getRideById = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Server error while fetching ride",
+      message: "Failed to fetch ride.",
     });
   }
 };
 
 /*
 |--------------------------------------------------------------------------
-| CANCEL RIDE
+| Cancel Ride
 |--------------------------------------------------------------------------
 */
 
 export const cancelRide = async (req, res) => {
   try {
-    const { reason } = req.body;
-
-    const ride = await Ride.findById(req.params.id);
+    const ride = await Ride.findOne({
+      _id: req.params.id,
+      passenger: req.user._id,
+    });
 
     if (!ride) {
       return res.status(404).json({
         success: false,
-        message: "Ride not found",
+        message: "Ride not found.",
       });
     }
 
-    if (ride.passenger.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Only the passenger can cancel this ride",
-      });
-    }
+    // ----------------------------------------------------
+    // Only requested/searching rides
+    // can be cancelled by passenger
+    // ----------------------------------------------------
 
-    if (!["searching", "accepted"].includes(ride.status)) {
+    if (!["requested", "searching"].includes(ride.status)) {
       return res.status(400).json({
         success: false,
-        message: "This ride can no longer be cancelled",
+        message: "This ride cannot be cancelled now.",
       });
     }
 
@@ -332,24 +220,13 @@ export const cancelRide = async (req, res) => {
 
     ride.cancelledAt = new Date();
 
-    ride.cancellationReason = reason?.trim() || "Cancelled by passenger";
-
-    /*
-     * If a driver had already accepted,
-     * make that driver available again.
-     */
-
-    if (ride.driver) {
-      await Driver.findByIdAndUpdate(ride.driver, {
-        isAvailable: true,
-      });
-    }
+    ride.cancellationReason = "Cancelled by passenger";
 
     await ride.save();
 
     return res.status(200).json({
       success: true,
-      message: "Ride cancelled successfully",
+      message: "Ride cancelled successfully.",
       ride,
     });
   } catch (error) {
@@ -357,7 +234,7 @@ export const cancelRide = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Server error while cancelling ride",
+      message: "Failed to cancel ride.",
     });
   }
 };
