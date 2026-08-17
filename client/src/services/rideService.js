@@ -2,7 +2,7 @@ import api from "./api";
 
 /*
 |--------------------------------------------------------------------------
-| Create Ride
+| Passenger - Create Ride
 |--------------------------------------------------------------------------
 */
 
@@ -31,7 +31,7 @@ export const createRide = async ({
 
 /*
 |--------------------------------------------------------------------------
-| Get My Rides
+| Passenger - My Rides
 |--------------------------------------------------------------------------
 */
 
@@ -43,7 +43,7 @@ export const getMyRides = async () => {
 
 /*
 |--------------------------------------------------------------------------
-| Get Single Ride
+| Passenger - Single Ride
 |--------------------------------------------------------------------------
 */
 
@@ -55,12 +55,84 @@ export const getRideById = async (id) => {
 
 /*
 |--------------------------------------------------------------------------
-| Cancel Ride
+| Passenger - Cancel Ride
 |--------------------------------------------------------------------------
 */
 
 export const cancelRide = async (id) => {
   const response = await api.patch(`/rides/${id}/cancel`);
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Driver - Available Rides
+|--------------------------------------------------------------------------
+*/
+
+export const getAvailableRides = async () => {
+  const response = await api.get("/rides/driver/available");
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Driver - Accept Ride
+|--------------------------------------------------------------------------
+*/
+
+export const acceptRide = async (id) => {
+  const response = await api.patch(`/rides/driver/${id}/accept`);
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Driver - My Active Rides
+|--------------------------------------------------------------------------
+*/
+
+export const getDriverRides = async () => {
+  const response = await api.get("/rides/driver/my-rides");
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Driver - Mark Arriving
+|--------------------------------------------------------------------------
+*/
+
+export const markDriverArriving = async (id) => {
+  const response = await api.patch(`/rides/driver/${id}/arriving`);
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Driver - Start Ride
+|--------------------------------------------------------------------------
+*/
+
+export const startRide = async (id) => {
+  const response = await api.patch(`/rides/driver/${id}/start`);
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Driver - Complete Ride
+|--------------------------------------------------------------------------
+*/
+
+export const completeRide = async (id) => {
+  const response = await api.patch(`/rides/driver/${id}/complete`);
 
   return response.data;
 };

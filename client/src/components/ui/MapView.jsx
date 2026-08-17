@@ -233,5 +233,5 @@ export default function MapView({
     }
   }, [pickup, destination, route]);
 
-  return <div ref={mapContainerRef} className="h-full min-h-[350px] w-full" />;
+  return <div ref={mapContainerRef} className="h-full min-h-87.5 w-full" />;
 }

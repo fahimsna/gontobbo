@@ -566,7 +566,7 @@ export default function PassengerDashboard() {
 
               {/* Map */}
 
-              <div className="min-h-[430px] bg-slate-800 lg:min-h-[560px]">
+              <div className="min-h-107.5 bg-slate-800 lg:min-h-140">
                 <MapView
                   pickup={pickup}
                   destination={destination}

@@ -8,6 +8,8 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 
 import PassengerDashboard from "./pages/passenger/PassengerDashboard";
+import DriverDashboard from "./pages/driver/DriverDashboard";
+import DriverApplication from "./pages/driver/DriverApplication";
 
 /*
 |--------------------------------------------------------------------------
@@ -195,6 +197,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/driver" element={<DriverDashboard />} />
+
+      <Route path="/driver/apply" element={<DriverApplication />} />
 
       {/* 404 */}
 
