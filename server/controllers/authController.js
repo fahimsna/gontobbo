@@ -7,6 +7,7 @@ export const registerUser = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
 
+    // Validate required fields
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -16,6 +17,7 @@ export const registerUser = async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
+    // Check existing user
     const existingUser = await User.findOne({
       email: normalizedEmail,
     });
@@ -27,8 +29,10 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Create user
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
@@ -61,6 +65,7 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validate fields
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -70,6 +75,7 @@ export const loginUser = async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
+    // Find user and explicitly include password
     const user = await User.findOne({
       email: normalizedEmail,
     }).select("+password");
@@ -81,6 +87,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // Check active status
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -88,6 +95,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // Compare password
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
     if (!isPasswordCorrect) {
@@ -97,6 +105,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // Generate JWT
     const token = generateToken(user._id);
 
     return res.status(200).json({

@@ -4,10 +4,15 @@ import dotenv from "dotenv";
 
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 dotenv.config();
 
 const app = express();
+
+// ===============================
+// Middleware
+// ===============================
 
 app.use(
   cors({
@@ -18,7 +23,16 @@ app.use(
 
 app.use(express.json());
 
+// ===============================
+// Routes
+// ===============================
+
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+
+// ===============================
+// Health Check
+// ===============================
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -26,6 +40,10 @@ app.get("/", (req, res) => {
     message: "Gontobbo API is running",
   });
 });
+
+// ===============================
+// Server
+// ===============================
 
 const PORT = process.env.PORT || 8009;
 
@@ -38,6 +56,7 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error("Failed to start server:", error.message);
+
     process.exit(1);
   }
 };
