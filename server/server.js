@@ -3,15 +3,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import connectDB from "./config/db.js";
+import authRoutes from "./routes/authRoutes.js";
 
 dotenv.config();
 
 const app = express();
 
-// Connect MongoDB
-connectDB();
-
-// Middleware
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
@@ -21,7 +18,8 @@ app.use(
 
 app.use(express.json());
 
-// Health check
+app.use("/api/auth", authRoutes);
+
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -29,8 +27,19 @@ app.get("/", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8009;
 
-app.listen(PORT, () => {
-  console.log(`Gontobbo server running on port ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+
+    app.listen(PORT, () => {
+      console.log(`Gontobbo server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();
