@@ -34,6 +34,15 @@ export async function getMyRides() {
 }
 
 /*
+ * Get a single passenger ride
+ */
+export async function getRideById(rideId) {
+  const response = await api.get(`/rides/${rideId}`);
+
+  return response.data;
+}
+
+/*
  * Cancel passenger ride
  */
 export async function cancelRide(rideId, reason = "Cancelled by passenger") {
@@ -60,7 +69,7 @@ export async function getAvailableRides() {
 }
 
 /*
- * Get driver's ride history
+ * Get driver's active ride history
  */
 export async function getDriverRides() {
   const response = await api.get("/rides/driver/my");
@@ -87,7 +96,30 @@ export async function rejectRide(rideId) {
 }
 
 /*
- * Driver starts the ride
+|--------------------------------------------------------------------------
+| DRIVER RIDE STATUS
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Mark driver as arriving at passenger pickup.
+ *
+ * Backend route:
+ *
+ * PATCH /api/rides/:id/arriving
+ */
+export async function markDriverArriving(rideId) {
+  const response = await api.patch(`/rides/${rideId}/arriving`);
+
+  return response.data;
+}
+
+/*
+ * Driver starts the ride.
+ *
+ * Backend requires:
+ *
+ * status === "driver_arriving"
  */
 export async function startRide(rideId) {
   const response = await api.patch(`/rides/${rideId}/start`);
@@ -96,7 +128,7 @@ export async function startRide(rideId) {
 }
 
 /*
- * Driver completes the ride
+ * Driver completes the ride.
  */
 export async function completeRide(rideId) {
   const response = await api.patch(`/rides/${rideId}/complete`);
@@ -122,7 +154,7 @@ export async function cancelDriverRide(rideId, reason = "Cancelled by driver") {
 */
 
 /*
- * Set driver ONLINE
+ * Set driver ONLINE.
  *
  * Backend route:
  *
@@ -132,7 +164,7 @@ export async function cancelDriverRide(rideId, reason = "Cancelled by driver") {
  *
  * 1. Authenticated user
  * 2. Approved driver
- * 3. Current driver location
+ * 3. Current GPS location
  */
 export async function setDriverOnline() {
   const response = await api.patch("/drivers/go-online");
@@ -141,7 +173,7 @@ export async function setDriverOnline() {
 }
 
 /*
- * Set driver OFFLINE
+ * Set driver OFFLINE.
  *
  * Backend route:
  *
@@ -155,30 +187,12 @@ export async function setDriverOffline() {
 
 /*
 |--------------------------------------------------------------------------
-| RATING
-|--------------------------------------------------------------------------
-*/
-
-/*
- * Passenger rates completed ride
- */
-export async function rateRide(rideId, rating, comment = "") {
-  const response = await api.post(`/rides/${rideId}/rating`, {
-    rating,
-    comment,
-  });
-
-  return response.data;
-}
-
-/*
-|--------------------------------------------------------------------------
 | DRIVER LOCATION
 |--------------------------------------------------------------------------
 */
 
 /*
- * Update driver's current location
+ * Update driver's current GPS location.
  *
  * Backend route:
  *
@@ -188,6 +202,88 @@ export async function updateDriverLocation(latitude, longitude) {
   const response = await api.patch("/drivers/location", {
     latitude,
     longitude,
+  });
+
+  return response.data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| DRIVER PROFILE
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Get logged-in driver's profile.
+ */
+export async function getMyDriverProfile() {
+  const response = await api.get("/drivers/me");
+
+  return response.data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| DRIVER APPLICATION
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Submit driver application.
+ */
+export async function applyAsDriver(applicationData) {
+  const response = await api.post("/drivers/apply", applicationData);
+
+  return response.data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| NEARBY DRIVERS
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Get nearby drivers.
+ *
+ * Passenger-side helper.
+ */
+export async function getNearbyDrivers(
+  latitude,
+  longitude,
+  maxDistance = 5000,
+  vehicleType = "",
+) {
+  const params = {
+    latitude,
+    longitude,
+    maxDistance,
+  };
+
+  if (vehicleType) {
+    params.vehicleType = vehicleType;
+  }
+
+  const response = await api.get("/drivers/nearby", {
+    params,
+  });
+
+  return response.data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| RATING
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Passenger rates completed ride.
+ */
+export async function rateRide(rideId, rating, comment = "") {
+  const response = await api.post(`/rides/${rideId}/rating`, {
+    rating,
+    comment,
   });
 
   return response.data;

@@ -28,12 +28,14 @@ import MapView from "../../components/ui/MapView";
 import {
   acceptRide,
   rejectRide,
+  markDriverArriving,
   startRide,
   completeRide,
   getAvailableRides,
   getDriverRides,
   setDriverOnline,
   setDriverOffline,
+  updateDriverLocation,
 } from "../../services/rideService";
 
 const POLL_INTERVAL = 4000;
@@ -52,6 +54,12 @@ export default function DriverDashboard() {
   const [online, setOnline] = useState(user?.online ?? user?.isOnline ?? false);
 
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  const [locationStatus, setLocationStatus] = useState(
+    "Location not shared yet",
+  );
+
+  const [currentLocation, setCurrentLocation] = useState(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -81,15 +89,111 @@ export default function DriverDashboard() {
 
   /*
   |--------------------------------------------------------------------------
+  | DRIVER GPS
+  |--------------------------------------------------------------------------
+  */
+
+  const sendCurrentPosition = useCallback(async (position) => {
+    const latitude = position?.coords?.latitude;
+
+    const longitude = position?.coords?.longitude;
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new Error("GPS returned an invalid location.");
+    }
+
+    setCurrentLocation({
+      latitude,
+      longitude,
+    });
+
+    setLocationStatus("Location updated");
+
+    await updateDriverLocation(latitude, longitude);
+  }, []);
+
+  const getCurrentPosition = useCallback(() => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by this browser."));
+
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 10000,
+      });
+    });
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CONTINUOUS GPS TRACKING
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    if (!online) {
+      return undefined;
+    }
+
+    if (!navigator.geolocation) {
+      return undefined;
+    }
+
+    let watchId = null;
+
+    const handlePosition = async (position) => {
+      try {
+        await sendCurrentPosition(position);
+      } catch (error) {
+        console.error("Driver location update error:", error);
+
+        setLocationStatus("Unable to update GPS location");
+      }
+    };
+
+    const handlePositionError = (error) => {
+      console.error("Driver GPS error:", error);
+
+      if (error?.code === 1) {
+        setLocationStatus("Location permission denied");
+      } else if (error?.code === 2) {
+        setLocationStatus("Unable to determine your location");
+      } else if (error?.code === 3) {
+        setLocationStatus("GPS request timed out");
+      } else {
+        setLocationStatus("GPS unavailable");
+      }
+    };
+
+    watchId = navigator.geolocation.watchPosition(
+      handlePosition,
+      handlePositionError,
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 10000,
+      },
+    );
+
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [online, sendCurrentPosition]);
+
+  /*
+  |--------------------------------------------------------------------------
   | LOAD DRIVER DATA
   |--------------------------------------------------------------------------
   */
 
   const loadDriverData = useCallback(
     async (silent = false) => {
-      /*
-       * Don't request available rides while offline.
-       */
       if (!online) {
         setAvailableRides([]);
 
@@ -97,26 +201,24 @@ export default function DriverDashboard() {
           setLoading(false);
         }
 
-        /*
-         * Still load driver history.
-         */
         try {
           const historyResponse = await getDriverRides();
 
           const history =
             historyResponse?.rides || historyResponse?.data?.rides || [];
 
-          setDriverRides(Array.isArray(history) ? history : []);
+          const safeHistory = Array.isArray(history) ? history : [];
 
-          const currentRide = Array.isArray(history)
-            ? history.find((ride) =>
-                ["accepted", "driver_arriving", "in_progress"].includes(
-                  ride.status,
-                ),
-              )
-            : null;
+          setDriverRides(safeHistory);
 
-          setActiveRide(currentRide || null);
+          const currentRide =
+            safeHistory.find((ride) =>
+              ["accepted", "driver_arriving", "in_progress"].includes(
+                ride.status,
+              ),
+            ) || null;
+
+          setActiveRide(currentRide);
         } catch (error) {
           console.error("Driver history error:", error);
         }
@@ -204,10 +306,6 @@ export default function DriverDashboard() {
       setStatusMessage("");
 
       if (online) {
-        /*
-         * GO OFFLINE
-         */
-
         await setDriverOffline();
 
         setOnline(false);
@@ -216,9 +314,50 @@ export default function DriverDashboard() {
 
         setStatusMessage("You are now offline.");
       } else {
+        if (!navigator.geolocation) {
+          throw new Error(
+            "Location services are not supported by this browser.",
+          );
+        }
+
+        setLocationStatus("Getting your current location...");
+
+        let position;
+
+        try {
+          position = await getCurrentPosition();
+        } catch (locationError) {
+          console.error("Initial driver GPS error:", locationError);
+
+          if (locationError?.code === 1) {
+            throw new Error(
+              "Location permission was denied. Please allow location access and try again.",
+            );
+          }
+
+          if (locationError?.code === 2) {
+            throw new Error(
+              "Your current location could not be determined. Please check your GPS and try again.",
+            );
+          }
+
+          if (locationError?.code === 3) {
+            throw new Error(
+              "Getting your location timed out. Please try again.",
+            );
+          }
+
+          throw new Error("Unable to get your current location.");
+        }
+
         /*
-         * GO ONLINE
+         * IMPORTANT:
+         *
+         * Save GPS first.
+         * Only then call go-online.
          */
+
+        await sendCurrentPosition(position);
 
         await setDriverOnline();
 
@@ -230,7 +369,9 @@ export default function DriverDashboard() {
       console.error("Driver online/offline error:", error);
 
       setStatusMessage(
-        error?.response?.data?.message || "Unable to update your availability.",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to update your availability.",
       );
     } finally {
       setStatusUpdating(false);
@@ -253,7 +394,11 @@ export default function DriverDashboard() {
 
       const response = await acceptRide(rideId);
 
-      const acceptedRide = response?.ride || response?.data?.ride || ride;
+      const acceptedRide = response?.ride ||
+        response?.data?.ride || {
+          ...ride,
+          status: "accepted",
+        };
 
       setActiveRide(acceptedRide);
 
@@ -261,7 +406,7 @@ export default function DriverDashboard() {
         current.filter((item) => (item._id || item.id) !== rideId),
       );
 
-      setStatusMessage("Ride accepted successfully.");
+      setStatusMessage("Ride accepted. Please mark yourself as arriving.");
 
       await loadDriverData(true);
     } catch (error) {
@@ -309,6 +454,49 @@ export default function DriverDashboard() {
 
   /*
   |--------------------------------------------------------------------------
+  | MARK DRIVER ARRIVING
+  |--------------------------------------------------------------------------
+  */
+
+  const handleDriverArriving = async () => {
+    if (!activeRide) {
+      return;
+    }
+
+    const rideId = activeRide._id || activeRide.id;
+
+    try {
+      setActionRideId(rideId);
+
+      setStatusMessage("");
+
+      const response = await markDriverArriving(rideId);
+
+      const updatedRide = response?.ride ||
+        response?.data?.ride || {
+          ...activeRide,
+          status: "driver_arriving",
+        };
+
+      setActiveRide(updatedRide);
+
+      setStatusMessage("You are marked as arriving.");
+
+      await loadDriverData(true);
+    } catch (error) {
+      console.error("Mark arriving error:", error);
+
+      setStatusMessage(
+        error?.response?.data?.message ||
+          "Unable to mark yourself as arriving.",
+      );
+    } finally {
+      setActionRideId(null);
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
   | START RIDE
   |--------------------------------------------------------------------------
   */
@@ -322,6 +510,8 @@ export default function DriverDashboard() {
 
     try {
       setActionRideId(rideId);
+
+      setStatusMessage("");
 
       const response = await startRide(rideId);
 
@@ -363,22 +553,24 @@ export default function DriverDashboard() {
     try {
       setActionRideId(rideId);
 
+      setStatusMessage("");
+
       const response = await completeRide(rideId);
+
+      const completed = response?.ride || response?.data?.ride || null;
 
       setActiveRide(null);
 
       setStatusMessage("Ride completed successfully.");
 
-      await loadDriverData(true);
-
-      if (response?.ride || response?.data?.ride) {
-        const completed = response.ride || response.data.ride;
-
+      if (completed) {
         setDriverRides((current) => [
           completed,
           ...current.filter((ride) => (ride._id || ride.id) !== rideId),
         ]);
       }
+
+      await loadDriverData(true);
     } catch (error) {
       console.error("Complete ride error:", error);
 
@@ -463,8 +655,6 @@ export default function DriverDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
-      {/* MOBILE OVERLAY */}
-
       {sidebarOpen && (
         <button
           type="button"
@@ -473,8 +663,6 @@ export default function DriverDashboard() {
           className="fixed inset-0 z-[1050] bg-slate-950/40 lg:hidden"
         />
       )}
-
-      {/* SIDEBAR */}
 
       <aside
         className={`fixed inset-y-0 left-0 z-[1100] flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ${
@@ -559,11 +747,7 @@ export default function DriverDashboard() {
         </div>
       </aside>
 
-      {/* MAIN */}
-
       <main className="relative z-0 lg:pl-72">
-        {/* HEADER */}
-
         <header className="sticky top-0 z-[1000] flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
@@ -584,8 +768,6 @@ export default function DriverDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* SMALL HEADER STATUS */}
-
             <div
               className={`hidden items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold sm:flex ${
                 online
@@ -631,8 +813,6 @@ export default function DriverDashboard() {
         </header>
 
         <div className="relative z-0 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {/* WELCOME */}
-
           <section className="mb-7">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
               <div>
@@ -663,8 +843,6 @@ export default function DriverDashboard() {
             </div>
           </section>
 
-          {/* STATUS MESSAGE */}
-
           {statusMessage && (
             <div className="mb-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700 shadow-sm">
               <div className="flex items-center gap-3">
@@ -683,10 +861,6 @@ export default function DriverDashboard() {
             </div>
           )}
 
-          {/* ============================================================
-              DRIVER AVAILABILITY
-              ============================================================ */}
-
           <section
             className={`relative z-0 mb-7 overflow-hidden rounded-3xl border shadow-sm ${
               online
@@ -702,8 +876,6 @@ export default function DriverDashboard() {
 
             <div className="p-6 sm:p-8">
               <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
-                {/* STATUS */}
-
                 <div className="flex items-center gap-5">
                   <div
                     className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${
@@ -739,10 +911,18 @@ export default function DriverDashboard() {
                         ? "Passengers can find you and new ride requests will appear automatically."
                         : "You are currently unavailable. Go online to start receiving passenger requests."}
                     </p>
+
+                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-400">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          currentLocation ? "bg-emerald-500" : "bg-slate-300"
+                        }`}
+                      />
+
+                      {locationStatus}
+                    </div>
                   </div>
                 </div>
-
-                {/* BIG BUTTON */}
 
                 <button
                   type="button"
@@ -770,8 +950,6 @@ export default function DriverDashboard() {
                 </button>
               </div>
 
-              {/* AVAILABILITY DETAILS */}
-
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
                 <AvailabilityItem
                   active={online}
@@ -786,15 +964,15 @@ export default function DriverDashboard() {
                 />
 
                 <AvailabilityItem
-                  active={online}
-                  label="Auto refresh"
-                  value={online ? "Active" : "Paused"}
+                  active={online && Boolean(currentLocation)}
+                  label="GPS tracking"
+                  value={
+                    online ? (currentLocation ? "Active" : "Waiting") : "Paused"
+                  }
                 />
               </div>
             </div>
           </section>
-
-          {/* STATS */}
 
           <section className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
@@ -821,8 +999,6 @@ export default function DriverDashboard() {
               value={user?.rating || "—"}
             />
           </section>
-
-          {/* ACTIVE RIDE */}
 
           {activeRide && (
             <section className="relative z-0 mb-7 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -865,8 +1041,6 @@ export default function DriverDashboard() {
               </div>
 
               <div className="p-6 sm:p-8">
-                {/* PASSENGER */}
-
                 <div className="mb-6 rounded-3xl bg-slate-50 p-5">
                   <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
                     <div className="flex items-center gap-4">
@@ -906,8 +1080,6 @@ export default function DriverDashboard() {
                   </div>
                 </div>
 
-                {/* LOCATIONS */}
-
                 <div className="grid gap-4 md:grid-cols-2">
                   <LocationCard
                     label="Pickup"
@@ -929,8 +1101,6 @@ export default function DriverDashboard() {
                     color="red"
                   />
                 </div>
-
-                {/* DETAILS */}
 
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <RideInfo
@@ -959,8 +1129,6 @@ export default function DriverDashboard() {
                   />
                 </div>
 
-                {/* MAP */}
-
                 <div className="relative z-0 mt-6 overflow-hidden rounded-3xl border border-slate-200">
                   <MapView
                     pickup={activeRide.pickup}
@@ -970,12 +1138,26 @@ export default function DriverDashboard() {
                   />
                 </div>
 
-                {/* ACTION */}
-
                 <div className="mt-6">
-                  {["accepted", "driver_arriving"].includes(
-                    activeRide.status,
-                  ) && (
+                  {activeRide.status === "accepted" && (
+                    <button
+                      type="button"
+                      onClick={handleDriverArriving}
+                      disabled={
+                        actionRideId === (activeRide._id || activeRide.id)
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-50"
+                    >
+                      {actionRideId === (activeRide._id || activeRide.id) ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Navigation size={18} />
+                      )}
+                      I'm Arriving
+                    </button>
+                  )}
+
+                  {activeRide.status === "driver_arriving" && (
                     <button
                       type="button"
                       onClick={handleStartRide}
@@ -1014,8 +1196,6 @@ export default function DriverDashboard() {
               </div>
             </section>
           )}
-
-          {/* RIDE REQUESTS */}
 
           <section className="relative z-0 mb-7">
             <div className="mb-4 flex items-end justify-between">
@@ -1096,8 +1276,6 @@ export default function DriverDashboard() {
             )}
           </section>
 
-          {/* EARNINGS */}
-
           <section className="mb-7 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
             <div className="rounded-3xl bg-slate-950 p-6 text-white sm:p-8">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
@@ -1136,8 +1314,6 @@ export default function DriverDashboard() {
                 </div>
               </div>
             </div>
-
-            {/* RECENT */}
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
               <div className="mb-5">
