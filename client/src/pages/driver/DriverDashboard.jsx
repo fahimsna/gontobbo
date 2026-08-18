@@ -1,683 +1,239 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  ArrowRight,
+  Bike,
   Car,
   CheckCircle2,
   Clock3,
   DollarSign,
+  Loader2,
   LogOut,
-  LocateFixed,
+  Menu,
   Navigation,
   Phone,
   RefreshCw,
-  Route,
+  ShieldCheck,
   Star,
   User,
   Wifi,
   WifiOff,
+  X,
   XCircle,
-  Zap,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
-import api from "../../services/api";
+
+import MapView from "../../components/ui/MapView";
 
 import {
   acceptRide,
+  rejectRide,
+  startRide,
   completeRide,
   getAvailableRides,
   getDriverRides,
-  markDriverArriving,
-  startRide,
+  setDriverOnline,
+  setDriverOffline,
 } from "../../services/rideService";
 
-/*
-|--------------------------------------------------------------------------
-| CONFIG
-|--------------------------------------------------------------------------
-*/
-
-const API_TIMEOUT = 8000;
-const RIDE_REFRESH_MS = 15000;
-const GPS_INTERVAL_MS = 5000;
-
-/*
-|--------------------------------------------------------------------------
-| SAFE API REQUEST
-|--------------------------------------------------------------------------
-*/
-
-async function requestWithTimeout(request, timeout = API_TIMEOUT) {
-  let timer = null;
-
-  try {
-    const timeoutPromise = new Promise((_, reject) => {
-      timer = setTimeout(() => {
-        const error = new Error("Request timed out.");
-
-        error.code = "REQUEST_TIMEOUT";
-
-        reject(error);
-      }, timeout);
-    });
-
-    return await Promise.race([request, timeoutPromise]);
-  } finally {
-    if (timer) {
-      clearTimeout(timer);
-    }
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| DRIVER DASHBOARD
-|--------------------------------------------------------------------------
-*/
+const POLL_INTERVAL = 4000;
 
 export default function DriverDashboard() {
   const { user, logout } = useAuth();
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   /*
   |--------------------------------------------------------------------------
-  | STATE
+  | DRIVER ONLINE STATUS
   |--------------------------------------------------------------------------
   */
 
-  const [driver, setDriver] = useState(null);
+  const [online, setOnline] = useState(user?.online ?? user?.isOnline ?? false);
+
+  const [statusUpdating, setStatusUpdating] = useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | RIDES
+  |--------------------------------------------------------------------------
+  */
 
   const [availableRides, setAvailableRides] = useState([]);
 
-  const [activeRides, setActiveRides] = useState([]);
+  const [driverRides, setDriverRides] = useState([]);
+
+  const [activeRide, setActiveRide] = useState(null);
 
   /*
-   * IMPORTANT:
-   *
-   * Dashboard does NOT start in loading mode.
-   *
-   * It can render while the driver profile is being requested.
-   */
-  const [loading, setLoading] = useState(false);
+  |--------------------------------------------------------------------------
+  | UI
+  |--------------------------------------------------------------------------
+  */
+
+  const [loading, setLoading] = useState(true);
 
   const [refreshing, setRefreshing] = useState(false);
 
-  const [actionLoading, setActionLoading] = useState(null);
+  const [actionRideId, setActionRideId] = useState(null);
 
-  const [onlineLoading, setOnlineLoading] = useState(false);
-
-  const [locationLoading, setLocationLoading] = useState(false);
-
-  const [error, setError] = useState("");
-
-  const [success, setSuccess] = useState("");
-
-  const [location, setLocation] = useState(null);
-
-  const [locationPermission, setLocationPermission] = useState("unknown");
+  const [statusMessage, setStatusMessage] = useState("");
 
   /*
   |--------------------------------------------------------------------------
-  | REFS
+  | LOAD DRIVER DATA
   |--------------------------------------------------------------------------
   */
 
-  const mountedRef = useRef(false);
-
-  const driverRef = useRef(null);
-
-  const watchIdRef = useRef(null);
-
-  const gpsStartedRef = useRef(false);
-
-  const lastLocationSentRef = useRef(0);
-
-  /*
-  |--------------------------------------------------------------------------
-  | MOUNT / UNMOUNT
-  |--------------------------------------------------------------------------
-  */
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-
-      if (watchIdRef.current !== null && navigator.geolocation) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-
-        watchIdRef.current = null;
-      }
-
-      gpsStartedRef.current = false;
-    };
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | DRIVER REF
-  |--------------------------------------------------------------------------
-  */
-
-  useEffect(() => {
-    driverRef.current = driver;
-  }, [driver]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | ERROR
-  |--------------------------------------------------------------------------
-  */
-
-  const showError = useCallback((message) => {
-    if (!mountedRef.current) {
-      return;
-    }
-
-    setError(message || "Something went wrong.");
-
-    setSuccess("");
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | SUCCESS
-  |--------------------------------------------------------------------------
-  */
-
-  const showSuccess = useCallback((message) => {
-    if (!mountedRef.current) {
-      return;
-    }
-
-    setSuccess(message || "Operation successful.");
-
-    setError("");
-
-    window.setTimeout(() => {
-      if (mountedRef.current) {
-        setSuccess("");
-      }
-    }, 4000);
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | LOAD DRIVER
-  |--------------------------------------------------------------------------
-  */
-
-  const loadDriver = useCallback(async () => {
-    try {
-      const response = await requestWithTimeout(api.get("/drivers/me"));
-
-      const driverData = response.data?.driver || null;
-
-      if (!driverData) {
-        throw new Error("Driver profile was not returned by the server.");
-      }
-
-      if (mountedRef.current) {
-        driverRef.current = driverData;
-
-        setDriver(driverData);
-      }
-
-      return driverData;
-    } catch (err) {
-      console.error("Driver profile error:", err);
-
+  const loadDriverData = useCallback(
+    async (silent = false) => {
       /*
-       * IMPORTANT:
-       *
-       * Never throw this error back into the initialization
-       * chain.
-       *
-       * The dashboard must always be able to render.
+       * Don't request available rides while offline.
        */
-
-      if (err.response?.status === 403) {
-        showError(
-          err.response?.data?.message ||
-            "Your driver account is not currently authorized.",
-        );
-      } else if (err.response?.status === 401) {
-        showError("Your login session is invalid or expired.");
-      } else if (err.code === "REQUEST_TIMEOUT") {
-        showError("The Gontobbo server took too long to respond.");
-      } else {
-        showError(
-          err.response?.data?.message ||
-            err.message ||
-            "Unable to load driver profile.",
-        );
-      }
-
-      return null;
-    }
-  }, [showError]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | LOAD RIDES
-  |--------------------------------------------------------------------------
-  */
-
-  const loadRides = useCallback(async () => {
-    const currentDriver = driverRef.current;
-
-    /*
-     * Only approved drivers should access driver ride endpoints.
-     */
-
-    if (!currentDriver || currentDriver.status !== "approved") {
-      if (mountedRef.current) {
+      if (!online) {
         setAvailableRides([]);
 
-        setActiveRides([]);
-      }
+        if (!silent) {
+          setLoading(false);
+        }
 
-      return;
-    }
+        /*
+         * Still load driver history.
+         */
+        try {
+          const historyResponse = await getDriverRides();
 
-    try {
-      const result = await Promise.allSettled([
-        requestWithTimeout(getAvailableRides()),
+          const history =
+            historyResponse?.rides || historyResponse?.data?.rides || [];
 
-        requestWithTimeout(getDriverRides()),
-      ]);
+          setDriverRides(Array.isArray(history) ? history : []);
 
-      if (!mountedRef.current) {
+          const currentRide = Array.isArray(history)
+            ? history.find((ride) =>
+                ["accepted", "driver_arriving", "in_progress"].includes(
+                  ride.status,
+                ),
+              )
+            : null;
+
+          setActiveRide(currentRide || null);
+        } catch (error) {
+          console.error("Driver history error:", error);
+        }
+
         return;
       }
 
-      const available = result[0];
-
-      const active = result[1];
-
-      if (available.status === "fulfilled") {
-        setAvailableRides(available.value?.rides || []);
-      }
-
-      if (active.status === "fulfilled") {
-        setActiveRides(active.value?.rides || []);
-      }
-
-      /*
-       * 403 from ride endpoints should not
-       * prevent the dashboard from rendering.
-       */
-
-      if (available.status === "rejected" || active.status === "rejected") {
-        console.warn("One or more ride requests failed.", {
-          available,
-          active,
-        });
-      }
-    } catch (err) {
-      console.error("Ride loading error:", err);
-    }
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | INITIAL LOAD
-  |--------------------------------------------------------------------------
-  |
-  | IMPORTANT:
-  |
-  | NO initialLoadRef.
-  |
-  | React StrictMode intentionally mounts/unmounts effects during
-  | development. The previous ref caused the second effect to skip
-  | initialization while the first effect had already been cancelled.
-  |
-  */
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const initialize = async () => {
-      /*
-       * Keep dashboard visible.
-       */
-
-      if (mountedRef.current) {
-        setLoading(true);
-      }
-
       try {
-        const driverData = await loadDriver();
-
-        /*
-         * Component may have been unmounted.
-         */
-
-        if (cancelled) {
-          return;
+        if (!silent) {
+          setLoading(true);
         }
 
-        /*
-         * Only load rides for approved drivers.
-         */
+        const [availableResponse, historyResponse] = await Promise.all([
+          getAvailableRides(),
+          getDriverRides(),
+        ]);
 
-        if (driverData?.status === "approved") {
-          await loadRides();
+        const available =
+          availableResponse?.rides || availableResponse?.data?.rides || [];
+
+        const history =
+          historyResponse?.rides || historyResponse?.data?.rides || [];
+
+        setAvailableRides(Array.isArray(available) ? available : []);
+
+        setDriverRides(Array.isArray(history) ? history : []);
+
+        const currentRide = Array.isArray(history)
+          ? history.find((ride) =>
+              ["accepted", "driver_arriving", "in_progress"].includes(
+                ride.status,
+              ),
+            )
+          : null;
+
+        setActiveRide(currentRide || null);
+      } catch (error) {
+        console.error("Driver dashboard error:", error);
+
+        if (!silent) {
+          setAvailableRides([]);
+          setDriverRides([]);
         }
-      } catch (err) {
-        /*
-         * Absolute last-resort protection.
-         */
-
-        console.error("Dashboard initialization error:", err);
       } finally {
-        /*
-         * THIS IS THE IMPORTANT PART.
-         *
-         * Loading is ALWAYS turned off.
-         */
-
-        if (!cancelled && mountedRef.current) {
+        if (!silent) {
           setLoading(false);
         }
       }
-    };
-
-    initialize();
-
-    /*
-     * Hard safety timeout.
-     *
-     * This timer is deliberately NOT tied to the request promise.
-     */
-
-    const safetyTimer = window.setTimeout(() => {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-    }, 10000);
-
-    return () => {
-      cancelled = true;
-
-      window.clearTimeout(safetyTimer);
-    };
-  }, [loadDriver, loadRides]);
+    },
+    [online],
+  );
 
   /*
   |--------------------------------------------------------------------------
-  | AUTO RIDE REFRESH
+  | INITIAL LOAD + POLLING
   |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
-    if (driver?.status !== "approved") {
-      return undefined;
-    }
+    loadDriverData();
 
     const interval = window.setInterval(() => {
-      loadRides();
-    }, RIDE_REFRESH_MS);
+      loadDriverData(true);
+    }, POLL_INTERVAL);
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [driver?.status, loadRides]);
+  }, [loadDriverData]);
 
   /*
   |--------------------------------------------------------------------------
-  | GET CURRENT LOCATION
+  | GO ONLINE / GO OFFLINE
   |--------------------------------------------------------------------------
   */
 
-  const getCurrentPosition = useCallback(() => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Geolocation is not supported by this browser."));
-
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-
-        timeout: 10000,
-
-        maximumAge: 5000,
-      });
-    });
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | SEND LOCATION
-  |--------------------------------------------------------------------------
-  */
-
-  const sendLocation = useCallback(async (position, force = false) => {
-    if (!position?.coords) {
+  const handleOnlineToggle = async () => {
+    if (statusUpdating) {
       return;
     }
 
-    const latitude = Number(position.coords.latitude);
-
-    const longitude = Number(position.coords.longitude);
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      return;
-    }
-
-    const now = Date.now();
-
-    if (!force && now - lastLocationSentRef.current < GPS_INTERVAL_MS) {
-      return;
-    }
-
-    lastLocationSentRef.current = now;
-
-    if (mountedRef.current) {
-      setLocation({
-        latitude,
-        longitude,
-        accuracy: Number(position.coords.accuracy || 0),
-        updatedAt: new Date(),
-      });
-    }
-
     try {
-      await requestWithTimeout(
-        api.patch("/drivers/location", {
-          latitude,
-          longitude,
-        }),
-      );
-    } catch (err) {
-      console.warn("Location update failed:", err);
-    }
-  }, []);
+      setStatusUpdating(true);
 
-  /*
-  |--------------------------------------------------------------------------
-  | STOP GPS
-  |--------------------------------------------------------------------------
-  */
+      setStatusMessage("");
 
-  const stopLocationTracking = useCallback(() => {
-    if (watchIdRef.current !== null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+      if (online) {
+        /*
+         * GO OFFLINE
+         */
 
-      watchIdRef.current = null;
-    }
+        await setDriverOffline();
 
-    gpsStartedRef.current = false;
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | START GPS
-  |--------------------------------------------------------------------------
-  */
-
-  const startLocationTracking = useCallback(async () => {
-    if (gpsStartedRef.current) {
-      return true;
-    }
-
-    try {
-      setLocationLoading(true);
-
-      const position = await getCurrentPosition();
-
-      setLocationPermission("granted");
-
-      await sendLocation(position, true);
-
-      const watchId = navigator.geolocation.watchPosition(
-        (nextPosition) => {
-          sendLocation(nextPosition, false);
-        },
-        (geoError) => {
-          console.warn("GPS error:", geoError);
-
-          if (geoError.code === 1) {
-            setLocationPermission("denied");
-          }
-        },
-        {
-          enableHighAccuracy: true,
-
-          timeout: 10000,
-
-          maximumAge: 5000,
-        },
-      );
-
-      watchIdRef.current = watchId;
-
-      gpsStartedRef.current = true;
-
-      return true;
-    } catch (err) {
-      console.error("GPS startup error:", err);
-
-      if (err.code === 1) {
-        setLocationPermission("denied");
-      }
-
-      throw err;
-    } finally {
-      if (mountedRef.current) {
-        setLocationLoading(false);
-      }
-    }
-  }, [getCurrentPosition, sendLocation]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | GO ONLINE
-  |--------------------------------------------------------------------------
-  */
-
-  const handleGoOnline = async () => {
-    try {
-      setOnlineLoading(true);
-
-      setError("");
-
-      await startLocationTracking();
-
-      await requestWithTimeout(api.patch("/drivers/go-online"));
-
-      const updatedDriver = {
-        ...(driverRef.current || {}),
-        isAvailable: true,
-      };
-
-      driverRef.current = updatedDriver;
-
-      if (mountedRef.current) {
-        setDriver(updatedDriver);
-      }
-
-      showSuccess("You are now online.");
-
-      await loadRides();
-    } catch (err) {
-      console.error("Go online error:", err);
-
-      stopLocationTracking();
-
-      showError(
-        err.response?.data?.message || err.message || "Unable to go online.",
-      );
-    } finally {
-      if (mountedRef.current) {
-        setOnlineLoading(false);
-      }
-    }
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | GO OFFLINE
-  |--------------------------------------------------------------------------
-  */
-
-  const handleGoOffline = async () => {
-    try {
-      setOnlineLoading(true);
-
-      stopLocationTracking();
-
-      await requestWithTimeout(api.patch("/drivers/go-offline"));
-
-      const updatedDriver = {
-        ...(driverRef.current || {}),
-        isAvailable: false,
-      };
-
-      driverRef.current = updatedDriver;
-
-      if (mountedRef.current) {
-        setDriver(updatedDriver);
+        setOnline(false);
 
         setAvailableRides([]);
+
+        setStatusMessage("You are now offline.");
+      } else {
+        /*
+         * GO ONLINE
+         */
+
+        await setDriverOnline();
+
+        setOnline(true);
+
+        setStatusMessage("You are now online and ready for rides.");
       }
+    } catch (error) {
+      console.error("Driver online/offline error:", error);
 
-      showSuccess("You are now offline.");
-    } catch (err) {
-      console.error("Go offline error:", err);
-
-      showError(err.response?.data?.message || "Unable to go offline.");
+      setStatusMessage(
+        error?.response?.data?.message || "Unable to update your availability.",
+      );
     } finally {
-      if (mountedRef.current) {
-        setOnlineLoading(false);
-      }
-    }
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | MANUAL REFRESH
-  |--------------------------------------------------------------------------
-  */
-
-  const handleRefresh = async () => {
-    try {
-      setRefreshing(true);
-
-      setError("");
-
-      const driverData = await loadDriver();
-
-      if (driverData?.status === "approved") {
-        await loadRides();
-      }
-    } finally {
-      if (mountedRef.current) {
-        setRefreshing(false);
-      }
+      setStatusUpdating(false);
     }
   };
 
@@ -687,493 +243,931 @@ export default function DriverDashboard() {
   |--------------------------------------------------------------------------
   */
 
-  const handleAcceptRide = async (rideId) => {
+  const handleAccept = async (ride) => {
+    const rideId = ride._id || ride.id;
+
     try {
-      setActionLoading(rideId);
+      setActionRideId(rideId);
 
-      await acceptRide(rideId);
+      setStatusMessage("");
 
-      showSuccess("Ride accepted.");
+      const response = await acceptRide(rideId);
 
-      await loadRides();
-    } catch (err) {
-      console.error("Accept ride error:", err);
+      const acceptedRide = response?.ride || response?.data?.ride || ride;
 
-      showError(err.response?.data?.message || "Unable to accept ride.");
+      setActiveRide(acceptedRide);
+
+      setAvailableRides((current) =>
+        current.filter((item) => (item._id || item.id) !== rideId),
+      );
+
+      setStatusMessage("Ride accepted successfully.");
+
+      await loadDriverData(true);
+    } catch (error) {
+      console.error("Accept ride error:", error);
+
+      setStatusMessage(
+        error?.response?.data?.message || "Unable to accept this ride.",
+      );
     } finally {
-      setActionLoading(null);
+      setActionRideId(null);
     }
   };
 
   /*
   |--------------------------------------------------------------------------
-  | RIDE ACTION
+  | REJECT RIDE
   |--------------------------------------------------------------------------
   */
 
-  const handleRideAction = async (ride) => {
+  const handleReject = async (ride) => {
+    const rideId = ride._id || ride.id;
+
     try {
-      setActionLoading(ride._id);
+      setActionRideId(rideId);
 
-      if (ride.status === "accepted") {
-        await markDriverArriving(ride._id);
+      setStatusMessage("");
 
-        showSuccess("Passenger notified that you are arriving.");
-      } else if (ride.status === "driver_arriving") {
-        await startRide(ride._id);
+      await rejectRide(rideId);
 
-        showSuccess("Ride started.");
-      } else if (ride.status === "in_progress") {
-        await completeRide(ride._id);
+      setAvailableRides((current) =>
+        current.filter((item) => (item._id || item.id) !== rideId),
+      );
 
-        showSuccess("Ride completed.");
-      }
+      setStatusMessage("Ride request rejected.");
+    } catch (error) {
+      console.error("Reject ride error:", error);
 
-      await loadRides();
-    } catch (err) {
-      console.error("Ride action error:", err);
-
-      showError(err.response?.data?.message || "Unable to update ride.");
+      setStatusMessage(
+        error?.response?.data?.message || "Unable to reject this ride.",
+      );
     } finally {
-      setActionLoading(null);
+      setActionRideId(null);
     }
   };
 
   /*
   |--------------------------------------------------------------------------
-  | LOGOUT
+  | START RIDE
   |--------------------------------------------------------------------------
   */
 
-  const handleLogout = async () => {
-    stopLocationTracking();
+  const handleStartRide = async () => {
+    if (!activeRide) {
+      return;
+    }
+
+    const rideId = activeRide._id || activeRide.id;
 
     try {
-      if (driverRef.current?.isAvailable) {
-        await requestWithTimeout(api.patch("/drivers/go-offline"));
-      }
-    } catch (err) {
-      console.warn("Could not mark driver offline:", err);
-    }
+      setActionRideId(rideId);
 
-    logout();
+      const response = await startRide(rideId);
+
+      const updatedRide = response?.ride ||
+        response?.data?.ride || {
+          ...activeRide,
+          status: "in_progress",
+        };
+
+      setActiveRide(updatedRide);
+
+      setStatusMessage("Ride started.");
+
+      await loadDriverData(true);
+    } catch (error) {
+      console.error("Start ride error:", error);
+
+      setStatusMessage(
+        error?.response?.data?.message || "Unable to start ride.",
+      );
+    } finally {
+      setActionRideId(null);
+    }
   };
 
   /*
   |--------------------------------------------------------------------------
-  | DERIVED DATA
+  | COMPLETE RIDE
   |--------------------------------------------------------------------------
   */
 
-  const isApproved = driver?.status === "approved";
+  const handleCompleteRide = async () => {
+    if (!activeRide) {
+      return;
+    }
 
-  const isOnline = driver?.isAvailable === true;
+    const rideId = activeRide._id || activeRide.id;
 
-  const totalRides = Number(driver?.totalRides || 0);
+    try {
+      setActionRideId(rideId);
 
-  const rating = Number(driver?.rating || 5);
+      const response = await completeRide(rideId);
 
-  const activeValue = activeRides.reduce(
-    (total, ride) => total + Number(ride.estimatedFare || 0),
-    0,
+      setActiveRide(null);
+
+      setStatusMessage("Ride completed successfully.");
+
+      await loadDriverData(true);
+
+      if (response?.ride || response?.data?.ride) {
+        const completed = response.ride || response.data.ride;
+
+        setDriverRides((current) => [
+          completed,
+          ...current.filter((ride) => (ride._id || ride.id) !== rideId),
+        ]);
+      }
+    } catch (error) {
+      console.error("Complete ride error:", error);
+
+      setStatusMessage(
+        error?.response?.data?.message || "Unable to complete ride.",
+      );
+    } finally {
+      setActionRideId(null);
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | REFRESH
+  |--------------------------------------------------------------------------
+  */
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+
+      await loadDriverData();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | STATISTICS
+  |--------------------------------------------------------------------------
+  */
+
+  const completedRides = useMemo(
+    () => driverRides.filter((ride) => ride.status === "completed"),
+    [driverRides],
+  );
+
+  const todayRides = useMemo(() => {
+    const now = new Date();
+
+    return completedRides.filter((ride) => {
+      const date = new Date(
+        ride.completedAt || ride.updatedAt || ride.createdAt,
+      );
+
+      return (
+        date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear()
+      );
+    });
+  }, [completedRides]);
+
+  const totalEarnings = useMemo(
+    () =>
+      completedRides.reduce(
+        (total, ride) =>
+          total +
+          Number(ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0),
+        0,
+      ),
+    [completedRides],
+  );
+
+  const todayEarnings = useMemo(
+    () =>
+      todayRides.reduce(
+        (total, ride) =>
+          total +
+          Number(ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0),
+        0,
+      ),
+    [todayRides],
   );
 
   /*
   |--------------------------------------------------------------------------
-  | LOADING
-  |--------------------------------------------------------------------------
-  |
-  | Because initialization can no longer get stuck,
-  | this screen is now only a short transitional state.
-  |
-  */
-
-  if (loading && !driver) {
-    return (
-      <div className="min-h-screen bg-[#07111f] px-4 py-10 text-white">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="h-10 w-40 animate-pulse rounded-xl bg-white/5" />
-
-            <div className="h-10 w-10 animate-pulse rounded-xl bg-white/5" />
-          </div>
-
-          <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.025] p-8">
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <RefreshCw
-                size={30}
-                className="mb-5 animate-spin text-indigo-400"
-              />
-
-              <h2 className="text-lg font-bold">Loading your dashboard...</h2>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Connecting to Gontobbo server
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | MAIN DASHBOARD
+  | RENDER
   |--------------------------------------------------------------------------
   */
 
   return (
-    <div className="min-h-screen bg-[#07111f] text-white">
-      {/* HEADER */}
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      {/* MOBILE OVERLAY */}
 
-      <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07111f]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-[1050] bg-slate-950/40 lg:hidden"
+        />
+      )}
+
+      {/* SIDEBAR */}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-[1100] flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-500 shadow-lg shadow-indigo-500/20">
-              <Car size={21} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <Navigation size={20} />
             </div>
 
             <div>
-              <h1 className="text-base font-bold">Gontobbo</h1>
+              <p className="font-bold">Gontobbo</p>
 
-              <p className="text-[11px] text-slate-500">Driver workspace</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium">{user?.name || "Driver"}</p>
-
-              <p className="text-xs text-slate-500">
-                {user?.email || "Driver account"}
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Driver
               </p>
             </div>
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-sm font-bold text-slate-300">
-              {getInitials(user?.name)}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] text-slate-400 hover:bg-red-500/10 hover:text-red-300"
-            >
-              <LogOut size={17} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* ERROR */}
-
-        {error && (
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3.5 text-sm text-red-300">
-            <XCircle size={18} className="mt-0.5 shrink-0" />
-
-            <span className="flex-1">{error}</span>
-
-            <button
-              type="button"
-              onClick={() => setError("")}
-              className="text-lg text-red-400"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
-        {/* SUCCESS */}
-
-        {success && (
-          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.07] px-4 py-3.5 text-sm text-emerald-300">
-            <CheckCircle2 size={18} />
-
-            {success}
-          </div>
-        )}
-
-        {/* HERO */}
-
-        <section className="mb-6 overflow-hidden rounded-[28px] border border-white/[0.08] bg-gradient-to-br from-indigo-500/[0.13] via-white/[0.025] to-transparent">
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-slate-400">
-                  <Zap size={13} />
-                  Driver mode
-                </div>
-
-                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                  Welcome,
-                  <span className="text-indigo-400">
-                    {" "}
-                    {firstName(user?.name)}
-                  </span>
-                </h2>
-
-                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                  Manage your driver account, rides and availability.
-                </p>
-              </div>
-
-              {/* ONLINE CONTROL */}
-
-              <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-black/20 p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-500">Driver status</p>
-
-                    <div className="mt-1 flex items-center gap-2">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          isOnline ? "bg-emerald-400" : "bg-slate-600"
-                        }`}
-                      />
-
-                      <p className="text-sm font-bold">
-                        {isOnline ? "Online" : "Offline"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="rounded-full bg-white/5 px-3 py-1.5 text-[11px] text-slate-400">
-                    {isOnline ? "Accepting rides" : "Not accepting"}
-                  </span>
-                </div>
-
-                {isApproved ? (
-                  <button
-                    type="button"
-                    disabled={onlineLoading || locationLoading}
-                    onClick={isOnline ? handleGoOffline : handleGoOnline}
-                    className={`flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 text-sm font-bold transition disabled:opacity-50 ${
-                      isOnline
-                        ? "border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.09]"
-                        : "bg-emerald-500 hover:bg-emerald-400"
-                    }`}
-                  >
-                    {onlineLoading || locationLoading ? (
-                      <>
-                        <RefreshCw size={17} className="animate-spin" />
-                        Updating...
-                      </>
-                    ) : isOnline ? (
-                      <>
-                        <WifiOff size={17} />
-                        Go Offline
-                      </>
-                    ) : (
-                      <>
-                        <Wifi size={17} />
-                        Go Online
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <div className="rounded-2xl border border-amber-400/10 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-300">
-                    {driver
-                      ? getDriverStatusMessage(driver.status)
-                      : "Driver profile could not be loaded. Check your server and login session."}
-                  </div>
-                )}
-
-                {isApproved && (
-                  <div className="mt-3 flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <LocateFixed
-                        size={14}
-                        className={
-                          location ? "text-emerald-400" : "text-slate-600"
-                        }
-                      />
-
-                      <span className="text-[11px] text-slate-500">GPS</span>
-                    </div>
-
-                    <span className="text-[11px] text-slate-400">
-                      {location
-                        ? `±${Math.round(location.accuracy || 0)}m`
-                        : locationPermission === "denied"
-                          ? "Denied"
-                          : "Waiting"}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* STATS */}
-
-        <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard
-            icon={<Route size={17} />}
-            label="Total rides"
-            value={totalRides}
-          />
-
-          <StatCard
-            icon={<Star size={17} />}
-            label="Rating"
-            value={rating.toFixed(1)}
-          />
-
-          <StatCard
-            icon={<DollarSign size={17} />}
-            label="Active value"
-            value={`৳${activeValue.toFixed(0)}`}
-          />
-
-          <StatCard
-            icon={<Navigation size={17} />}
-            label="Nearby rides"
-            value={availableRides.length}
-          />
-        </section>
-
-        {/* DRIVER PROFILE */}
-
-        <section className="mb-6 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <StatusIcon status={driver?.status} />
-
-              <div>
-                <p className="text-xs text-slate-500">Driver application</p>
-
-                <p className="mt-1 text-sm font-bold">
-                  {getStatusLabel(driver?.status)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <InfoPill label="Vehicle" value={driver?.vehicle?.type || "—"} />
-
-              <InfoPill label="Model" value={driver?.vehicle?.model || "—"} />
-
-              <InfoPill
-                label="Registration"
-                value={driver?.vehicle?.registrationNumber || "—"}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* RIDE HEADER */}
-
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold">Ride requests</h3>
-
-            <p className="mt-1 text-xs text-slate-500">
-              {isOnline
-                ? "Passenger requests will appear here."
-                : "Go online to receive passenger requests."}
-            </p>
           </div>
 
           <button
             type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-slate-300 disabled:opacity-50"
+            onClick={() => setSidebarOpen(false)}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 lg:hidden"
           >
-            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            Refresh
+            <X size={20} />
           </button>
         </div>
 
-        {/* NO DRIVER */}
+        <nav className="flex-1 p-4">
+          <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Driver menu
+          </p>
 
-        {!driver && (
-          <EmptyState
-            icon={<XCircle size={25} />}
-            title="Driver profile unavailable"
-            message="The dashboard loaded, but the driver profile could not be retrieved from the server."
-          />
-        )}
+          <div className="mt-3 space-y-1">
+            <SidebarItem icon={Navigation} label="Dashboard" active />
 
-        {/* NOT APPROVED */}
+            <SidebarItem icon={Car} label="Ride Requests" />
 
-        {driver && !isApproved && (
-          <EmptyState
-            icon={<Clock3 size={25} />}
-            title={getStatusLabel(driver.status)}
-            message={getDriverStatusMessage(driver.status)}
-          />
-        )}
+            <SidebarItem icon={Clock3} label="Ride History" />
 
-        {/* OFFLINE */}
+            <SidebarItem icon={DollarSign} label="Earnings" />
 
-        {driver && isApproved && !isOnline && (
-          <EmptyState
-            icon={<WifiOff size={25} />}
-            title="You are offline"
-            message="Go online to start receiving passenger requests."
-            action={
+            <SidebarItem icon={Star} label="Ratings" />
+          </div>
+
+          <p className="mt-8 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Account
+          </p>
+
+          <div className="mt-3 space-y-1">
+            <SidebarItem icon={ShieldCheck} label="Driver Verification" />
+
+            <SidebarItem icon={User} label="Profile" />
+          </div>
+        </nav>
+
+        <div className="border-t border-slate-100 p-4">
+          <div className="mb-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">
+              {getInitials(user?.name)}
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">
+                {user?.name || "Driver"}
+              </p>
+
+              <p className="truncate text-xs text-slate-400">{user?.email}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={logout}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+          >
+            <LogOut size={16} />
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+
+      <main className="relative z-0 lg:pl-72">
+        {/* HEADER */}
+
+        <header className="sticky top-0 z-[1000] flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-xl p-2 hover:bg-slate-100 lg:hidden"
+            >
+              <Menu size={22} />
+            </button>
+
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Driver portal
+              </p>
+
+              <h1 className="text-lg font-bold">Driver Dashboard</h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* SMALL HEADER STATUS */}
+
+            <div
+              className={`hidden items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold sm:flex ${
+                online
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              {online ? <Wifi size={15} /> : <WifiOff size={15} />}
+
+              {online ? "Online" : "Offline"}
+
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  online ? "animate-pulse bg-emerald-500" : "bg-slate-400"
+                }`}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RefreshCw
+                size={14}
+                className={refreshing ? "animate-spin" : ""}
+              />
+
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+
+            <div className="hidden text-right sm:block">
+              <p className="text-xs text-slate-400">Welcome</p>
+
+              <p className="text-sm font-bold">{user?.name}</p>
+            </div>
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white">
+              {getInitials(user?.name)}
+            </div>
+          </div>
+        </header>
+
+        <div className="relative z-0 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {/* WELCOME */}
+
+          <section className="mb-7">
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+              <div>
+                <p className="text-sm font-medium text-slate-400">
+                  Ready for the road?
+                </p>
+
+                <h2 className="mt-1 text-3xl font-bold tracking-tight">
+                  Good to see you, {user?.name?.split(" ")[0] || "Driver"}.
+                </h2>
+              </div>
+
+              <div
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold ${
+                  online
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    online ? "bg-emerald-500" : "bg-slate-400"
+                  }`}
+                />
+
+                {online ? "You're available for rides" : "You're offline"}
+              </div>
+            </div>
+          </section>
+
+          {/* STATUS MESSAGE */}
+
+          {statusMessage && (
+            <div className="mb-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700 shadow-sm">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 size={18} className="text-emerald-500" />
+
+                {statusMessage}
+              </div>
+
               <button
                 type="button"
-                onClick={handleGoOnline}
-                disabled={onlineLoading || locationLoading}
-                className="mt-5 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold disabled:opacity-50"
+                onClick={() => setStatusMessage("")}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
-                Go Online
+                <X size={16} />
               </button>
-            }
-          />
-        )}
-
-        {/* AVAILABLE RIDES */}
-
-        {driver && isApproved && isOnline && availableRides.length > 0 && (
-          <section className="grid gap-4 lg:grid-cols-2">
-            {availableRides.map((ride) => (
-              <AvailableRideCard
-                key={ride._id}
-                ride={ride}
-                loading={actionLoading === ride._id}
-                onAccept={() => handleAcceptRide(ride._id)}
-              />
-            ))}
-          </section>
-        )}
-
-        {driver && isApproved && isOnline && availableRides.length === 0 && (
-          <EmptyState
-            icon={<Navigation size={25} />}
-            title="No ride requests"
-            message="You are online. New nearby passenger requests will appear here."
-          />
-        )}
-
-        {/* ACTIVE RIDES */}
-
-        {activeRides.length > 0 && (
-          <section className="mt-8">
-            <div className="mb-4">
-              <h3 className="text-lg font-bold">Active rides</h3>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Your current passenger trips.
-              </p>
             </div>
+          )}
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              {activeRides.map((ride) => (
-                <ActiveRideCard
-                  key={ride._id}
-                  ride={ride}
-                  loading={actionLoading === ride._id}
-                  onAction={() => handleRideAction(ride)}
+          {/* ============================================================
+              DRIVER AVAILABILITY
+              ============================================================ */}
+
+          <section
+            className={`relative z-0 mb-7 overflow-hidden rounded-3xl border shadow-sm ${
+              online
+                ? "border-emerald-200 bg-white"
+                : "border-slate-200 bg-white"
+            }`}
+          >
+            <div
+              className={`h-2 w-full ${
+                online ? "bg-emerald-500" : "bg-slate-300"
+              }`}
+            />
+
+            <div className="p-6 sm:p-8">
+              <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+                {/* STATUS */}
+
+                <div className="flex items-center gap-5">
+                  <div
+                    className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl ${
+                      online
+                        ? "bg-emerald-100 text-emerald-600"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {online ? <Wifi size={28} /> : <WifiOff size={28} />}
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                      Driver availability
+                    </p>
+
+                    <div className="mt-1 flex items-center gap-2">
+                      <h3 className="text-2xl font-bold">
+                        {online ? "You are Online" : "You are Offline"}
+                      </h3>
+
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          online
+                            ? "animate-pulse bg-emerald-500"
+                            : "bg-slate-400"
+                        }`}
+                      />
+                    </div>
+
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                      {online
+                        ? "Passengers can find you and new ride requests will appear automatically."
+                        : "You are currently unavailable. Go online to start receiving passenger requests."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* BIG BUTTON */}
+
+                <button
+                  type="button"
+                  onClick={handleOnlineToggle}
+                  disabled={statusUpdating}
+                  className={`flex min-h-14 min-w-[190px] items-center justify-center gap-3 rounded-2xl px-7 py-4 text-sm font-bold shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    online
+                      ? "bg-red-50 text-red-600 ring-1 ring-red-200 hover:bg-red-100"
+                      : "bg-emerald-500 text-white hover:bg-emerald-400"
+                  }`}
+                >
+                  {statusUpdating ? (
+                    <Loader2 size={20} className="animate-spin" />
+                  ) : online ? (
+                    <WifiOff size={20} />
+                  ) : (
+                    <Wifi size={20} />
+                  )}
+
+                  {statusUpdating
+                    ? "Updating..."
+                    : online
+                      ? "Go Offline"
+                      : "Go Online"}
+                </button>
+              </div>
+
+              {/* AVAILABILITY DETAILS */}
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                <AvailabilityItem
+                  active={online}
+                  label="Ride requests"
+                  value={online ? "Receiving" : "Paused"}
                 />
-              ))}
+
+                <AvailabilityItem
+                  active={online}
+                  label="Passenger visibility"
+                  value={online ? "Visible" : "Hidden"}
+                />
+
+                <AvailabilityItem
+                  active={online}
+                  label="Auto refresh"
+                  value={online ? "Active" : "Paused"}
+                />
+              </div>
             </div>
           </section>
-        )}
+
+          {/* STATS */}
+
+          <section className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              icon={DollarSign}
+              label="Today's earnings"
+              value={`৳${todayEarnings.toFixed(0)}`}
+            />
+
+            <StatCard
+              icon={Car}
+              label="Today's rides"
+              value={todayRides.length}
+            />
+
+            <StatCard
+              icon={Clock3}
+              label="Completed rides"
+              value={completedRides.length}
+            />
+
+            <StatCard
+              icon={Star}
+              label="Driver rating"
+              value={user?.rating || "—"}
+            />
+          </section>
+
+          {/* ACTIVE RIDE */}
+
+          {activeRide && (
+            <section className="relative z-0 mb-7 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-100 bg-slate-950 px-6 py-6 text-white sm:px-8">
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
+
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        Active ride
+                      </p>
+                    </div>
+
+                    <h3 className="mt-2 text-2xl font-bold">
+                      {formatStatus(activeRide.status)}
+                    </h3>
+
+                    <p className="mt-1 text-sm text-slate-400">
+                      Passenger ride currently assigned to you.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/10 px-5 py-3 text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Fare
+                    </p>
+
+                    <p className="mt-1 text-2xl font-bold">
+                      ৳
+                      {Number(
+                        activeRide.finalFare ??
+                          activeRide.estimatedFare ??
+                          activeRide.fare ??
+                          0,
+                      ).toFixed(0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-8">
+                {/* PASSENGER */}
+
+                <div className="mb-6 rounded-3xl bg-slate-50 p-5">
+                  <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-sm font-bold text-white">
+                        {getInitials(
+                          activeRide.passenger?.name ||
+                            activeRide.user?.name ||
+                            "Passenger",
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Passenger
+                        </p>
+
+                        <h4 className="mt-1 text-lg font-bold">
+                          {activeRide.passenger?.name ||
+                            activeRide.user?.name ||
+                            "Passenger"}
+                        </h4>
+                      </div>
+                    </div>
+
+                    {(activeRide.passenger?.phone ||
+                      activeRide.user?.phone) && (
+                      <a
+                        href={`tel:${
+                          activeRide.passenger?.phone || activeRide.user?.phone
+                        }`}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-400"
+                      >
+                        <Phone size={17} />
+                        Call passenger
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* LOCATIONS */}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <LocationCard
+                    label="Pickup"
+                    value={
+                      activeRide.pickup?.address ||
+                      activeRide.pickup?.name ||
+                      "Pickup location"
+                    }
+                    color="emerald"
+                  />
+
+                  <LocationCard
+                    label="Destination"
+                    value={
+                      activeRide.destination?.address ||
+                      activeRide.destination?.name ||
+                      "Destination"
+                    }
+                    color="red"
+                  />
+                </div>
+
+                {/* DETAILS */}
+
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <RideInfo
+                    label="Vehicle"
+                    value={formatVehicleType(activeRide.vehicleType)}
+                  />
+
+                  <RideInfo
+                    label="Distance"
+                    value={formatDistanceValue(activeRide.distanceKm)}
+                  />
+
+                  <RideInfo
+                    label="Duration"
+                    value={formatDurationValue(activeRide.durationMinutes)}
+                  />
+
+                  <RideInfo
+                    label="Fare"
+                    value={`৳${Number(
+                      activeRide.finalFare ??
+                        activeRide.estimatedFare ??
+                        activeRide.fare ??
+                        0,
+                    ).toFixed(0)}`}
+                  />
+                </div>
+
+                {/* MAP */}
+
+                <div className="relative z-0 mt-6 overflow-hidden rounded-3xl border border-slate-200">
+                  <MapView
+                    pickup={activeRide.pickup}
+                    destination={activeRide.destination}
+                    driverLocation={activeRide.driverLocation || null}
+                    route={null}
+                  />
+                </div>
+
+                {/* ACTION */}
+
+                <div className="mt-6">
+                  {["accepted", "driver_arriving"].includes(
+                    activeRide.status,
+                  ) && (
+                    <button
+                      type="button"
+                      onClick={handleStartRide}
+                      disabled={
+                        actionRideId === (activeRide._id || activeRide.id)
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 py-4 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {actionRideId === (activeRide._id || activeRide.id) ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Navigation size={18} />
+                      )}
+                      Start Ride
+                    </button>
+                  )}
+
+                  {activeRide.status === "in_progress" && (
+                    <button
+                      type="button"
+                      onClick={handleCompleteRide}
+                      disabled={
+                        actionRideId === (activeRide._id || activeRide.id)
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50"
+                    >
+                      {actionRideId === (activeRide._id || activeRide.id) ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={18} />
+                      )}
+                      Complete Ride
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* RIDE REQUESTS */}
+
+          <section className="relative z-0 mb-7">
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                  Incoming
+                </p>
+
+                <h3 className="mt-1 text-2xl font-bold">Ride requests</h3>
+              </div>
+
+              <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
+                {availableRides.length} available
+              </div>
+            </div>
+
+            {!online ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                  <WifiOff size={23} className="text-slate-400" />
+                </div>
+
+                <h4 className="mt-4 font-bold">You are offline</h4>
+
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
+                  Go online to receive passenger ride requests.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleOnlineToggle}
+                  disabled={statusUpdating}
+                  className="mx-auto mt-5 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  {statusUpdating ? (
+                    <Loader2 size={17} className="animate-spin" />
+                  ) : (
+                    <Wifi size={17} />
+                  )}
+                  Go Online
+                </button>
+              </div>
+            ) : loading ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
+                <Loader2
+                  size={25}
+                  className="mx-auto animate-spin text-slate-400"
+                />
+
+                <p className="mt-3 text-sm text-slate-400">
+                  Loading ride requests...
+                </p>
+              </div>
+            ) : availableRides.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                  <Car size={23} className="text-slate-400" />
+                </div>
+
+                <h4 className="mt-4 font-bold">No ride requests</h4>
+
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
+                  New passenger requests will appear here automatically.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {availableRides.map((ride) => (
+                  <RequestCard
+                    key={ride._id || ride.id}
+                    ride={ride}
+                    actionRideId={actionRideId}
+                    onAccept={handleAccept}
+                    onReject={handleReject}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* EARNINGS */}
+
+          <section className="mb-7 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+            <div className="rounded-3xl bg-slate-950 p-6 text-white sm:p-8">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                Earnings
+              </p>
+
+              <h3 className="mt-2 text-2xl font-bold">Your earnings</h3>
+
+              <div className="mt-8">
+                <p className="text-sm text-slate-500">Total earnings</p>
+
+                <p className="mt-2 text-4xl font-bold">
+                  ৳{totalEarnings.toFixed(0)}
+                </p>
+              </div>
+
+              <div className="mt-8 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-white/5 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Today
+                  </p>
+
+                  <p className="mt-2 text-xl font-bold">
+                    ৳{todayEarnings.toFixed(0)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white/5 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Trips
+                  </p>
+
+                  <p className="mt-2 text-xl font-bold">
+                    {completedRides.length}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* RECENT */}
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+              <div className="mb-5">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                  Activity
+                </p>
+
+                <h3 className="mt-1 text-xl font-bold">
+                  Recent completed rides
+                </h3>
+              </div>
+
+              {completedRides.length === 0 ? (
+                <div className="rounded-2xl bg-slate-50 p-8 text-center">
+                  <Clock3 size={22} className="mx-auto text-slate-400" />
+
+                  <p className="mt-3 text-sm font-semibold text-slate-500">
+                    No completed rides yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {completedRides.slice(0, 6).map((ride) => (
+                    <CompletedRide key={ride._id || ride.id} ride={ride} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </main>
     </div>
   );
@@ -1181,224 +1175,110 @@ export default function DriverDashboard() {
 
 /*
 |--------------------------------------------------------------------------
-| AVAILABLE RIDE CARD
+| REQUEST CARD
 |--------------------------------------------------------------------------
 */
 
-function AvailableRideCard({ ride, loading, onAccept }) {
-  return (
-    <article className="overflow-hidden rounded-[24px] border border-white/[0.07] bg-white/[0.025]">
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-600">
-            New ride
-          </p>
+function RequestCard({ ride, actionRideId, onAccept, onReject }) {
+  const rideId = ride._id || ride.id;
 
-          <p className="mt-1 text-sm font-bold text-indigo-300">
-            Passenger request
-          </p>
-        </div>
-
-        <div className="rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300">
-          ৳{Number(ride.estimatedFare || 0).toFixed(0)}
-        </div>
-      </div>
-
-      <div className="p-5">
-        <RouteDisplay
-          pickup={ride.pickup?.address}
-          destination={ride.destination?.address}
-        />
-
-        <div className="mt-5 grid grid-cols-3 gap-2">
-          <SmallMetric
-            icon={<DollarSign size={13} />}
-            label="Fare"
-            value={`৳${Number(ride.estimatedFare || 0).toFixed(0)}`}
-          />
-
-          <SmallMetric
-            icon={<Route size={13} />}
-            label="Distance"
-            value={`${Number(ride.distanceKm || 0).toFixed(1)} km`}
-          />
-
-          <SmallMetric
-            icon={<Clock3 size={13} />}
-            label="Duration"
-            value={`${Math.round(ride.durationMinutes || 0)}m`}
-          />
-        </div>
-
-        <div className="mt-5 flex items-center justify-between rounded-xl border border-white/[0.05] bg-black/10 px-3 py-3">
-          <div className="flex items-center gap-2">
-            <User size={15} className="text-slate-500" />
-
-            <div>
-              <p className="text-[10px] text-slate-600">Passenger</p>
-
-              <p className="text-xs font-semibold text-slate-300">
-                {ride.passenger?.name || "Passenger"}
-              </p>
-            </div>
-          </div>
-
-          {ride.passenger?.phone && (
-            <a
-              href={`tel:${ride.passenger.phone}`}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"
-            >
-              <Phone size={15} />
-            </a>
-          )}
-        </div>
-
-        <button
-          type="button"
-          disabled={loading}
-          onClick={onAccept}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-500 px-4 py-4 text-sm font-bold hover:bg-indigo-400 disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <RefreshCw size={17} className="animate-spin" />
-              Accepting...
-            </>
-          ) : (
-            <>
-              Accept Ride
-              <ArrowRight size={17} />
-            </>
-          )}
-        </button>
-      </div>
-    </article>
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| ACTIVE RIDE CARD
-|--------------------------------------------------------------------------
-*/
-
-function ActiveRideCard({ ride, loading, onAction }) {
-  const actionLabel =
-    ride.status === "accepted"
-      ? "I'm Arriving"
-      : ride.status === "driver_arriving"
-        ? "Start Ride"
-        : "Complete Ride";
+  const busy = actionRideId === rideId;
 
   return (
-    <article className="rounded-[24px] border border-indigo-400/10 bg-indigo-500/[0.035]">
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-600">
-            Active ride
-          </p>
-
-          <p className="mt-1 text-sm font-bold">
-            {ride.passenger?.name || "Passenger"}
-          </p>
-        </div>
-
-        <StatusBadge status={ride.status} />
-      </div>
-
-      <div className="p-5">
-        <RouteDisplay
-          pickup={ride.pickup?.address}
-          destination={ride.destination?.address}
-        />
-
-        <div className="mt-5 flex items-center justify-between rounded-2xl border border-white/[0.06] bg-black/10 p-3.5">
-          <div className="flex items-center gap-3">
-            <User size={17} className="text-slate-500" />
-
-            <div>
-              <p className="text-[10px] text-slate-600">Passenger</p>
-
-              <p className="text-sm font-medium">
-                {ride.passenger?.name || "Passenger"}
-              </p>
-            </div>
-          </div>
-
-          {ride.passenger?.phone && (
-            <a
-              href={`tel:${ride.passenger.phone}`}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"
-            >
-              <Phone size={16} />
-            </a>
-          )}
-        </div>
-
-        <button
-          type="button"
-          disabled={loading}
-          onClick={onAction}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-500 px-4 py-4 text-sm font-bold hover:bg-indigo-400 disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <RefreshCw size={17} className="animate-spin" />
-              Updating...
-            </>
-          ) : (
-            <>
-              {actionLabel}
-
-              <ArrowRight size={17} />
-            </>
-          )}
-        </button>
-      </div>
-    </article>
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| ROUTE DISPLAY
-|--------------------------------------------------------------------------
-*/
-
-function RouteDisplay({ pickup, destination }) {
-  return (
-    <div className="relative">
-      <div className="absolute bottom-5 left-[9px] top-5 w-px bg-white/10" />
-
-      <div className="relative flex gap-3">
-        <div className="flex h-5 w-5 shrink-0 items-center justify-center">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-        </div>
-
-        <div className="min-w-0 flex-1 pb-4">
-          <p className="text-[10px] uppercase tracking-wider text-slate-600">
-            Pickup
-          </p>
-
-          <p className="mt-1 text-sm text-slate-300">
-            {pickup || "Pickup location"}
-          </p>
-        </div>
-      </div>
-
-      <div className="relative flex gap-3">
-        <div className="flex h-5 w-5 shrink-0 items-center justify-center">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-        </div>
-
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-wider text-slate-600">
-            Destination
-          </p>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100">
+                <User size={19} className="text-slate-500" />
+              </div>
 
-          <p className="mt-1 text-sm text-slate-300">
-            {destination || "Destination"}
-          </p>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Passenger
+                </p>
+
+                <p className="text-sm font-bold">
+                  {ride.passenger?.name || ride.user?.name || "Passenger"}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-emerald-50 px-3 py-2 text-right">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600">
+                Fare
+              </p>
+
+              <p className="text-lg font-bold text-emerald-700">
+                ৳
+                {Number(
+                  ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0,
+                ).toFixed(0)}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <LocationCard
+              label="Pickup"
+              value={ride.pickup?.address || ride.pickup?.name || "Pickup"}
+              color="emerald"
+            />
+
+            <LocationCard
+              label="Destination"
+              value={
+                ride.destination?.address ||
+                ride.destination?.name ||
+                "Destination"
+              }
+              color="red"
+            />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <InfoPill
+              icon={<VehicleIcon type={ride.vehicleType} />}
+              value={formatVehicleType(ride.vehicleType)}
+            />
+
+            <InfoPill
+              icon={<Navigation size={14} />}
+              value={formatDistanceValue(ride.distanceKm)}
+            />
+
+            <InfoPill
+              icon={<Clock3 size={14} />}
+              value={formatDurationValue(ride.durationMinutes)}
+            />
+          </div>
+        </div>
+
+        <div className="flex shrink-0 gap-3 lg:w-56 lg:flex-col">
+          <button
+            type="button"
+            onClick={() => onAccept(ride)}
+            disabled={busy}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3.5 text-sm font-bold text-white hover:bg-emerald-400 disabled:opacity-50 lg:flex-none"
+          >
+            {busy ? (
+              <Loader2 size={17} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={17} />
+            )}
+            Accept
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onReject(ride)}
+            disabled={busy}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 lg:flex-none"
+          >
+            <XCircle size={17} />
+            Reject
+          </button>
         </div>
       </div>
     </div>
@@ -1407,40 +1287,89 @@ function RouteDisplay({ pickup, destination }) {
 
 /*
 |--------------------------------------------------------------------------
-| STAT CARD
+| COMPLETED RIDE
 |--------------------------------------------------------------------------
 */
 
-function StatCard({ icon, label, value }) {
+function CompletedRide({ ride }) {
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-      <div className="flex items-center gap-2 text-slate-600">
-        {icon}
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
 
-        <span className="text-[10px] uppercase tracking-wider">{label}</span>
+            <p className="truncate text-sm font-bold">
+              {ride.destination?.address || "Completed ride"}
+            </p>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+            <span>
+              {formatRideDate(
+                ride.completedAt || ride.updatedAt || ride.createdAt,
+              )}
+            </span>
+
+            <span>{formatVehicleType(ride.vehicleType)}</span>
+
+            <span>{formatDistanceValue(ride.distanceKm)}</span>
+          </div>
+        </div>
+
+        <p className="shrink-0 text-lg font-bold">
+          ৳
+          {Number(
+            ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0,
+          ).toFixed(0)}
+        </p>
       </div>
-
-      <p className="mt-2 text-xl font-bold text-slate-200">{value}</p>
     </div>
   );
 }
 
 /*
 |--------------------------------------------------------------------------
-| SMALL METRIC
+| LOCATION CARD
 |--------------------------------------------------------------------------
 */
 
-function SmallMetric({ icon, label, value }) {
+function LocationCard({ label, value, color }) {
   return (
-    <div className="rounded-xl border border-white/[0.05] bg-black/10 px-2 py-2.5 text-center">
-      <div className="flex items-center justify-center gap-1 text-slate-600">
-        {icon}
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <div className="flex items-center gap-2">
+        <span
+          className={`h-2.5 w-2.5 rounded-full ${
+            color === "emerald" ? "bg-emerald-500" : "bg-red-500"
+          }`}
+        />
 
-        <span className="text-[9px]">{label}</span>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          {label}
+        </p>
       </div>
 
-      <p className="mt-1 text-xs font-semibold text-slate-300">{value}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-800">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| RIDE INFO
+|--------------------------------------------------------------------------
+*/
+
+function RideInfo({ label, value }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-bold text-slate-900">{value}</p>
     </div>
   );
 }
@@ -1451,149 +1380,200 @@ function SmallMetric({ icon, label, value }) {
 |--------------------------------------------------------------------------
 */
 
-function InfoPill({ label, value }) {
+function InfoPill({ icon, value }) {
   return (
-    <div className="rounded-xl border border-white/[0.05] bg-black/10 px-3 py-2">
-      <span className="text-[9px] uppercase tracking-wider text-slate-600">
-        {label}
-      </span>
-
-      <p className="mt-0.5 max-w-[180px] truncate text-xs font-semibold text-slate-300">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| STATUS ICON
-|--------------------------------------------------------------------------
-*/
-
-function StatusIcon({ status }) {
-  if (status === "approved") {
-    return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-        <CheckCircle2 size={19} />
-      </div>
-    );
-  }
-
-  if (status === "rejected" || status === "suspended") {
-    return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
-        <XCircle size={19} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-      <Clock3 size={19} />
-    </div>
-  );
-}
-
-/*
-|--------------------------------------------------------------------------
-| STATUS BADGE
-|--------------------------------------------------------------------------
-*/
-
-function StatusBadge({ status }) {
-  const map = {
-    accepted: ["Accepted", "bg-indigo-500/10 text-indigo-300"],
-
-    driver_arriving: ["Arriving", "bg-amber-500/10 text-amber-300"],
-
-    in_progress: ["In progress", "bg-emerald-500/10 text-emerald-300"],
-  };
-
-  const item = map[status] || [
-    status || "Unknown",
-    "bg-white/5 text-slate-400",
-  ];
-
-  return (
-    <span
-      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${item[1]}`}
-    >
-      {item[0]}
+    <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+      {icon}
+      {value}
     </span>
   );
 }
 
 /*
 |--------------------------------------------------------------------------
-| EMPTY STATE
+| AVAILABILITY ITEM
 |--------------------------------------------------------------------------
 */
 
-function EmptyState({ icon, title, message, action }) {
+function AvailabilityItem({ active, label, value }) {
   return (
-    <section className="rounded-[28px] border border-white/[0.07] bg-white/[0.025] p-8 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400">
-        {icon}
+    <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+      <div className="flex items-center gap-2">
+        <span
+          className={`h-2 w-2 rounded-full ${
+            active ? "bg-emerald-500" : "bg-slate-400"
+          }`}
+        />
+
+        <span className="text-xs font-semibold text-slate-500">{label}</span>
       </div>
 
-      <h3 className="text-lg font-bold">{title}</h3>
-
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-        {message}
-      </p>
-
-      {action}
-    </section>
+      <span className="text-xs font-bold text-slate-700">{value}</span>
+    </div>
   );
 }
 
 /*
 |--------------------------------------------------------------------------
-| DRIVER STATUS LABEL
+| STAT CARD
 |--------------------------------------------------------------------------
 */
 
-function getStatusLabel(status) {
-  if (status === "approved") {
-    return "Approved";
-  }
+function StatCard({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            {label}
+          </p>
 
-  if (status === "pending") {
-    return "Pending approval";
-  }
+          <p className="mt-3 text-2xl font-bold">{value}</p>
+        </div>
 
-  if (status === "rejected") {
-    return "Rejected";
-  }
-
-  if (status === "suspended") {
-    return "Suspended";
-  }
-
-  return "Driver profile unavailable";
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100">
+          <Icon size={19} className="text-slate-500" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /*
 |--------------------------------------------------------------------------
-| DRIVER STATUS MESSAGE
+| SIDEBAR ITEM
 |--------------------------------------------------------------------------
 */
 
-function getDriverStatusMessage(status) {
-  if (status === "pending") {
-    return "Your driver application is waiting for administrator approval.";
+function SidebarItem({ icon: Icon, label, active = false }) {
+  return (
+    <button
+      type="button"
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${
+        active
+          ? "bg-slate-950 text-white"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+      }`}
+    >
+      <Icon size={18} />
+
+      {label}
+    </button>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| VEHICLE ICON
+|--------------------------------------------------------------------------
+*/
+
+function VehicleIcon({ type }) {
+  if (type === "bike") {
+    return <Bike size={14} />;
   }
 
-  if (status === "rejected") {
-    return "Your driver application was rejected. Please review the reason and update your application.";
+  return <Car size={14} />;
+}
+
+/*
+|--------------------------------------------------------------------------
+| VEHICLE TYPE
+|--------------------------------------------------------------------------
+*/
+
+function formatVehicleType(type) {
+  if (type === "bike") {
+    return "Bike";
   }
 
-  if (status === "suspended") {
-    return "Your driver account is currently suspended.";
+  if (type === "cng") {
+    return "CNG";
   }
 
-  return "Your driver account is not currently available.";
+  return "Car";
+}
+
+/*
+|--------------------------------------------------------------------------
+| STATUS
+|--------------------------------------------------------------------------
+*/
+
+function formatStatus(status) {
+  if (!status) {
+    return "Active ride";
+  }
+
+  return String(status)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/*
+|--------------------------------------------------------------------------
+| DISTANCE
+|--------------------------------------------------------------------------
+*/
+
+function formatDistanceValue(value) {
+  if (value === undefined || value === null || value === "") {
+    return "—";
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+
+  return `${number.toFixed(1)} km`;
+}
+
+/*
+|--------------------------------------------------------------------------
+| DURATION
+|--------------------------------------------------------------------------
+*/
+
+function formatDurationValue(value) {
+  if (value === undefined || value === null || value === "") {
+    return "—";
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+
+  return `${Math.round(number)} min`;
+}
+
+/*
+|--------------------------------------------------------------------------
+| DATE
+|--------------------------------------------------------------------------
+*/
+
+function formatRideDate(date) {
+  if (!date) {
+    return "Unknown date";
+  }
+
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "Unknown date";
+  }
+
+  return parsed.toLocaleString("en-BD", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 /*
@@ -1602,30 +1582,13 @@ function getDriverStatusMessage(status) {
 |--------------------------------------------------------------------------
 */
 
-function getInitials(name) {
-  if (!name) {
-    return "DR";
-  }
-
-  const parts = String(name).trim().split(/\s+/);
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-/*
-|--------------------------------------------------------------------------
-| FIRST NAME
-|--------------------------------------------------------------------------
-*/
-
-function firstName(name) {
-  if (!name) {
-    return "Driver";
-  }
-
-  return String(name).trim().split(/\s+/)[0];
+function getInitials(name = "") {
+  return (
+    String(name)
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "D"
+  );
 }

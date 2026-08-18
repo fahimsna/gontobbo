@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  Bike,
   Car,
   CheckCircle2,
   Clock3,
@@ -38,90 +39,46 @@ import {
   cancelRide,
 } from "../../services/rideService";
 
-/*
-|--------------------------------------------------------------------------
-| CONFIG
-|--------------------------------------------------------------------------
-*/
-
 const RIDE_POLL_INTERVAL = 4000;
-
-/*
-|--------------------------------------------------------------------------
-| PASSENGER DASHBOARD
-|--------------------------------------------------------------------------
-*/
 
 export default function PassengerDashboard() {
   const { user, logout } = useAuth();
 
-  /*
-  |--------------------------------------------------------------------------
-  | SIDEBAR
-  |--------------------------------------------------------------------------
-  */
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  /*
-  |--------------------------------------------------------------------------
-  | LOCATION
-  |--------------------------------------------------------------------------
-  */
-
   const [pickupText, setPickupText] = useState("");
-
   const [destinationText, setDestinationText] = useState("");
 
   const [pickup, setPickup] = useState(null);
-
   const [destination, setDestination] = useState(null);
 
-  const [pickupResults, setPickupResults] = useState([]);
+  /*
+  |--------------------------------------------------------------------------
+  | VEHICLE TYPE
+  |--------------------------------------------------------------------------
+  */
 
+  const [vehicleType, setVehicleType] = useState("car");
+
+  const [pickupResults, setPickupResults] = useState([]);
   const [destinationResults, setDestinationResults] = useState([]);
 
   const [pickupSearching, setPickupSearching] = useState(false);
-
   const [destinationSearching, setDestinationSearching] = useState(false);
 
-  /*
-  |--------------------------------------------------------------------------
-  | ROUTE
-  |--------------------------------------------------------------------------
-  */
-
   const [route, setRoute] = useState(null);
-
   const [routeLoading, setRouteLoading] = useState(false);
-
   const [routeError, setRouteError] = useState("");
 
-  /*
-  |--------------------------------------------------------------------------
-  | RIDES
-  |--------------------------------------------------------------------------
-  */
-
   const [activeRide, setActiveRide] = useState(null);
-
   const [rideHistory, setRideHistory] = useState([]);
 
   const [activeRideLoading, setActiveRideLoading] = useState(true);
-
   const [historyLoading, setHistoryLoading] = useState(true);
 
   const [rideLoading, setRideLoading] = useState(false);
-
   const [cancelLoading, setCancelLoading] = useState(false);
-
   const [refreshing, setRefreshing] = useState(false);
-
-  /*
-  |--------------------------------------------------------------------------
-  | COMPONENT MOUNT
-  |--------------------------------------------------------------------------
-  */
 
   const [mounted, setMounted] = useState(true);
 
@@ -133,7 +90,7 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
-  | SEARCH PICKUP
+  | PICKUP SEARCH
   |--------------------------------------------------------------------------
   */
 
@@ -176,21 +133,19 @@ export default function PassengerDashboard() {
 
     return () => {
       cancelled = true;
-
       window.clearTimeout(timer);
     };
   }, [pickupText, pickup]);
 
   /*
   |--------------------------------------------------------------------------
-  | SEARCH DESTINATION
+  | DESTINATION SEARCH
   |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
     if (destination) {
       setDestinationResults([]);
-
       return;
     }
 
@@ -198,7 +153,6 @@ export default function PassengerDashboard() {
 
     if (query.length < 2) {
       setDestinationResults([]);
-
       return;
     }
 
@@ -228,14 +182,13 @@ export default function PassengerDashboard() {
 
     return () => {
       cancelled = true;
-
       window.clearTimeout(timer);
     };
   }, [destinationText, destination]);
 
   /*
   |--------------------------------------------------------------------------
-  | CALCULATE ROUTE
+  | ROUTE
   |--------------------------------------------------------------------------
   */
 
@@ -243,7 +196,6 @@ export default function PassengerDashboard() {
     if (!pickup || !destination) {
       setRoute(null);
       setRouteError("");
-
       return;
     }
 
@@ -252,7 +204,6 @@ export default function PassengerDashboard() {
     const calculate = async () => {
       try {
         setRouteLoading(true);
-
         setRouteError("");
 
         const result = await calculateRoute(pickup, destination);
@@ -306,7 +257,7 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
-  | LOAD ACTIVE RIDE
+  | ACTIVE RIDE
   |--------------------------------------------------------------------------
   */
 
@@ -320,24 +271,14 @@ export default function PassengerDashboard() {
 
       const ride = response?.ride || null;
 
-      /*
-       * Ignore corrupted development rides.
-       */
-
       if (ride && Number(ride.distanceKm) > 200) {
         setActiveRide(null);
-
         return;
       }
 
       setActiveRide(ride);
     } catch (error) {
       console.error("Active ride error:", error);
-
-      /*
-       * Do not destroy a visible active ride because
-       * one polling request failed.
-       */
 
       if (!silent) {
         setActiveRide(null);
@@ -351,7 +292,7 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
-  | LOAD HISTORY
+  | HISTORY
   |--------------------------------------------------------------------------
   */
 
@@ -375,11 +316,6 @@ export default function PassengerDashboard() {
     } catch (error) {
       console.error("Ride history error:", error);
 
-      /*
-       * Do not erase existing history during
-       * background polling.
-       */
-
       if (!silent) {
         setRideHistory([]);
       }
@@ -392,7 +328,7 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
-  | INITIAL RIDE LOAD
+  | LOAD RIDES
   |--------------------------------------------------------------------------
   */
 
@@ -401,13 +337,7 @@ export default function PassengerDashboard() {
     loadRideHistory();
 
     const interval = window.setInterval(() => {
-      /*
-       * This is what makes the passenger see
-       * the driver acceptance automatically.
-       */
-
       loadActiveRide(true);
-
       loadRideHistory(true);
     }, RIDE_POLL_INTERVAL);
 
@@ -418,7 +348,7 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
-  | SELECT PICKUP
+  | LOCATION SELECTION
   |--------------------------------------------------------------------------
   */
 
@@ -428,17 +358,9 @@ export default function PassengerDashboard() {
     setPickupText(location.name || location.displayName || "");
 
     setPickupResults([]);
-
     setRoute(null);
-
     setRouteError("");
   };
-
-  /*
-  |--------------------------------------------------------------------------
-  | SELECT DESTINATION
-  |--------------------------------------------------------------------------
-  */
 
   const selectDestination = (location) => {
     setDestination(location);
@@ -446,41 +368,23 @@ export default function PassengerDashboard() {
     setDestinationText(location.name || location.displayName || "");
 
     setDestinationResults([]);
-
     setRoute(null);
-
     setRouteError("");
   };
-
-  /*
-  |--------------------------------------------------------------------------
-  | CLEAR PICKUP
-  |--------------------------------------------------------------------------
-  */
 
   const clearPickup = () => {
     setPickup(null);
-
     setPickupText("");
-
+    setPickupResults([]);
     setRoute(null);
-
     setRouteError("");
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | CLEAR DESTINATION
-  |--------------------------------------------------------------------------
-  */
-
   const clearDestination = () => {
     setDestination(null);
-
     setDestinationText("");
-
+    setDestinationResults([]);
     setRoute(null);
-
     setRouteError("");
   };
 
@@ -495,8 +399,23 @@ export default function PassengerDashboard() {
       return 0;
     }
 
-    return calculateFare(route.distanceKm);
-  }, [route]);
+    try {
+      const baseFare =
+        Number(calculateFare(route.distanceKm, route.durationMinutes)) || 0;
+
+      const multipliers = {
+        car: 1,
+        bike: 0.75,
+        cng: 0.85,
+      };
+
+      return Math.round(baseFare * (multipliers[vehicleType] || 1));
+    } catch (error) {
+      console.error("Fare calculation error:", error);
+
+      return 0;
+    }
+  }, [route, vehicleType]);
 
   /*
   |--------------------------------------------------------------------------
@@ -505,31 +424,39 @@ export default function PassengerDashboard() {
   */
 
   const handleRequestRide = async () => {
-    if (!pickup || !destination || !route) {
-      window.alert("Please select both pickup and destination.");
-
+    if (!pickup) {
+      setRouteError("Please select a pickup location.");
       return;
     }
 
-    if (route.distanceKm <= 0 || route.distanceKm > 200) {
-      window.alert(
-        "Invalid route distance. Please select the locations again.",
-      );
+    if (!destination) {
+      setRouteError("Please select a destination.");
+      return;
+    }
 
+    if (!route) {
+      setRouteError("Please wait for the route to be calculated.");
+      return;
+    }
+
+    if (!["car", "bike", "cng"].includes(vehicleType)) {
+      setRouteError("Please select a valid vehicle type.");
+      return;
+    }
+
+    if (activeRide) {
+      setRouteError("You already have an active ride.");
       return;
     }
 
     try {
       setRideLoading(true);
-
-      const pickupLocation = buildRideLocation(pickup);
-
-      const destinationLocation = buildRideLocation(destination);
+      setRouteError("");
 
       const payload = {
-        pickup: pickupLocation,
+        pickup: buildRideLocation(pickup),
 
-        destination: destinationLocation,
+        destination: buildRideLocation(destination),
 
         distanceKm: Number(route.distanceKm.toFixed(2)),
 
@@ -538,98 +465,93 @@ export default function PassengerDashboard() {
         estimatedFare: fare,
 
         /*
-         * Driver currently uses car.
-         *
-         * We can add a vehicle selector next.
-         */
+        |--------------------------------------------------------------------------
+        | IMPORTANT
+        |--------------------------------------------------------------------------
+        */
 
-        vehicleType: "car",
+        vehicleType: vehicleType,
       };
 
-      console.log("Creating ride:", payload);
+      console.log("Creating ride with vehicle type:", vehicleType);
+
+      console.log("CREATE RIDE PAYLOAD:", payload);
 
       const response = await createRide(payload);
 
-      const createdRide = response?.ride || null;
-
-      if (createdRide && Number(createdRide.distanceKm) > 200) {
-        throw new Error("Backend returned an invalid route distance.");
+      if (!mounted) {
+        return;
       }
 
-      setActiveRide(createdRide);
+      const ride = response?.ride || response?.data?.ride || null;
 
-      /*
-       * Clear booking form.
-       */
+      if (!ride) {
+        throw new Error(
+          "Ride was created but no ride information was returned.",
+        );
+      }
+
+      setActiveRide(ride);
 
       setPickup(null);
       setDestination(null);
 
       setPickupText("");
-
       setDestinationText("");
 
+      setPickupResults([]);
+      setDestinationResults([]);
+
       setRoute(null);
-
       setRouteError("");
-
-      await loadRideHistory();
-
-      /*
-       * Do not use an alert here.
-       *
-       * The active ride card itself now tells the passenger
-       * the ride was requested.
-       */
-
-      console.log("Ride requested successfully.");
     } catch (error) {
-      console.error("Request ride error:", error);
+      console.error("Create ride error:", error);
 
-      window.alert(
+      if (!mounted) {
+        return;
+      }
+
+      setRouteError(
         error?.response?.data?.message ||
           error?.message ||
-          "Failed to request ride.",
+          "Unable to request a ride. Please try again.",
       );
     } finally {
-      setRideLoading(false);
+      if (mounted) {
+        setRideLoading(false);
+      }
     }
   };
 
   /*
   |--------------------------------------------------------------------------
-  | CANCEL RIDE
+  | CANCEL
   |--------------------------------------------------------------------------
   */
 
   const handleCancelRide = async () => {
-    if (!activeRide?._id) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Are you sure you want to cancel this ride?",
-    );
-
-    if (!confirmed) {
+    if (!activeRide?.id && !activeRide?._id) {
       return;
     }
 
     try {
       setCancelLoading(true);
 
-      const response = await cancelRide(
-        activeRide._id,
-        "Cancelled by passenger",
-      );
+      const rideId = activeRide.id || activeRide._id;
 
-      setActiveRide(response?.ride || null);
+      await cancelRide(rideId);
+
+      setActiveRide(null);
 
       await loadRideHistory();
     } catch (error) {
       console.error("Cancel ride error:", error);
 
-      window.alert(error?.response?.data?.message || "Failed to cancel ride.");
+      setRouteError(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to cancel the ride.",
+      );
     } finally {
       setCancelLoading(false);
     }
@@ -653,137 +575,133 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
-  | STATS
-  |--------------------------------------------------------------------------
-  */
-
-  const completedRides = rideHistory.filter(
-    (ride) => ride.status === "completed",
-  ).length;
-
-  const currentDate = new Date();
-
-  const monthlyRides = rideHistory.filter((ride) => {
-    const date = new Date(ride.createdAt || ride.requestedAt);
-
-    return (
-      date.getMonth() === currentDate.getMonth() &&
-      date.getFullYear() === currentDate.getFullYear()
-    );
-  }).length;
-
-  /*
-  |--------------------------------------------------------------------------
-  | DRIVER ACCEPTED
+  | DERIVED
   |--------------------------------------------------------------------------
   */
 
   const driverAccepted = Boolean(
     activeRide?.driver &&
-    ["accepted", "driver_arriving", "in_progress"].includes(activeRide.status),
+    ["accepted", "driver_arriving", "in_progress", "completed"].includes(
+      activeRide.status,
+    ),
   );
+
+  const completedRides = rideHistory.filter(
+    (ride) => ride.status === "completed",
+  );
+
+  const monthlyRides = completedRides.filter((ride) => {
+    if (!ride.createdAt) {
+      return false;
+    }
+
+    const date = new Date(ride.createdAt);
+
+    const now = new Date();
+
+    return (
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear()
+    );
+  }).length;
 
   /*
   |--------------------------------------------------------------------------
-  | MAIN RENDER
+  | RENDER
   |--------------------------------------------------------------------------
   */
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-950">
-      {/* MOBILE OVERLAY */}
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      {/* MOBILE BACKDROP */}
 
       {sidebarOpen && (
         <button
           type="button"
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           aria-label="Close sidebar"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-[1050] bg-slate-950/40 lg:hidden"
         />
       )}
 
       {/* SIDEBAR */}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
+        className={`fixed inset-y-0 left-0 z-[1100] w-72 transform border-r border-slate-200 bg-white transition-transform duration-300 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
       >
-        <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
-              <Navigation size={20} />
+        <div className="flex h-full flex-col">
+          <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+                <Navigation size={20} />
+              </div>
+
+              <div>
+                <p className="text-lg font-bold">Gontobbo</p>
+
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Passenger
+                </p>
+              </div>
             </div>
 
-            <div>
-              <p className="font-bold">Gontobbo</p>
-
-              <p className="text-[11px] text-slate-400">Passenger</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 lg:hidden"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <nav className="flex-1 px-4 py-6">
-          <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            Menu
-          </p>
-
-          <div className="mt-3 space-y-1">
+          <nav className="flex-1 space-y-1 p-4">
             <SidebarItem icon={Navigation} label="Dashboard" active />
 
             <SidebarItem icon={Car} label="My Rides" />
 
-            <SidebarItem icon={MapPin} label="Saved Places" />
-          </div>
+            <SidebarItem icon={Star} label="Ratings" />
 
-          <p className="mt-8 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            Account
-          </p>
+            <SidebarItem icon={ShieldCheck} label="Safety" />
+          </nav>
 
-          <div className="mt-3">
-            <SidebarItem icon={ShieldCheck} label="Profile" />
-          </div>
-        </nav>
+          <div className="border-t border-slate-100 p-4">
+            <div className="mb-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">
+                {getInitials(user?.name)}
+              </div>
 
-        <div className="border-t border-slate-100 p-4">
-          <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white">
-              {getInitials(user?.name)}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">
+                  {user?.name || "Passenger"}
+                </p>
+
+                <p className="truncate text-xs text-slate-400">{user?.email}</p>
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">
-                {user?.name || "Passenger"}
-              </p>
-
-              <p className="truncate text-xs text-slate-400">{user?.email}</p>
-            </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+            >
+              <XCircle size={16} />
+              Sign out
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={logout}
-            className="mt-3 w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600"
-          >
-            Sign out
-          </button>
         </div>
       </aside>
 
       {/* MAIN */}
 
-      <main className="lg:pl-72">
-        {/* HEADER */}
+      <main className="relative z-0 lg:pl-72">
+        {/* HEADER
+            IMPORTANT:
+            Higher z-index than map
+        */}
 
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-[1000] flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -827,11 +745,7 @@ export default function PassengerDashboard() {
           </div>
         </header>
 
-        {/* CONTENT */}
-
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {/* WELCOME */}
-
+        <div className="relative z-0 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <section className="mb-8">
             <p className="text-sm font-medium text-slate-400">
               Good to see you,
@@ -846,14 +760,10 @@ export default function PassengerDashboard() {
             </h2>
           </section>
 
-          {/* ==================================================
-              ACTIVE RIDE
-          ================================================== */}
+          {/* ACTIVE RIDE */}
 
           {!activeRideLoading && activeRide && (
-            <section className="mb-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-              {/* STATUS HEADER */}
-
+            <section className="relative z-0 mb-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div
                 className={`border-b px-6 py-6 sm:px-8 ${
                   driverAccepted
@@ -904,8 +814,6 @@ export default function PassengerDashboard() {
                 </div>
               </div>
 
-              {/* DRIVER CARD */}
-
               {driverAccepted && (
                 <div className="border-b border-slate-100 p-6 sm:p-8">
                   <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5">
@@ -951,9 +859,9 @@ export default function PassengerDashboard() {
 
                     <div className="mt-5 grid gap-3 sm:grid-cols-3">
                       <DriverInfo
-                        icon={<Car size={16} />}
+                        icon={<VehicleIcon type={activeRide.vehicleType} />}
                         label="Vehicle"
-                        value="Car"
+                        value={formatVehicleType(activeRide.vehicleType)}
                       />
 
                       <DriverInfo
@@ -971,8 +879,6 @@ export default function PassengerDashboard() {
                   </div>
                 </div>
               )}
-
-              {/* SEARCHING CARD */}
 
               {!driverAccepted &&
                 ["requested", "searching"].includes(activeRide.status) && (
@@ -1005,8 +911,6 @@ export default function PassengerDashboard() {
                   </div>
                 )}
 
-              {/* LOCATIONS */}
-
               <div className="p-6 sm:p-8">
                 <div className="grid gap-4 md:grid-cols-2">
                   <LocationCard
@@ -1034,215 +938,264 @@ export default function PassengerDashboard() {
                   />
 
                   <RideInfo
+                    label="Vehicle"
+                    value={formatVehicleType(activeRide.vehicleType)}
+                  />
+
+                  <RideInfo
                     label="Fare"
                     value={`৳${Number(activeRide.estimatedFare || 0).toFixed(
                       0,
                     )}`}
                   />
-
-                  <RideInfo
-                    label="Vehicle"
-                    value={activeRide.vehicleType || "car"}
-                  />
                 </div>
+
+                {activeRide.status === "in_progress" && (
+                  <div className="relative z-0 mt-6 overflow-hidden rounded-3xl">
+                    <MapView
+                      pickup={activeRide.pickup}
+                      destination={activeRide.destination}
+                      driverLocation={
+                        activeRide.driver?.currentLocation ||
+                        activeRide.driverLocation ||
+                        null
+                      }
+                      route={null}
+                    />
+                  </div>
+                )}
               </div>
             </section>
           )}
 
-          {/* ==================================================
-              BOOKING
-          ================================================== */}
+          {/* BOOK RIDE */}
 
           {!activeRide && (
-            <section className="overflow-hidden rounded-3xl bg-slate-950 text-white shadow-xl">
-              <div className="grid lg:grid-cols-[0.85fr_1.15fr]">
-                {/* FORM */}
+            <section className="relative z-0 mb-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="rounded-3xl bg-slate-950 p-6 text-white shadow-xl sm:p-8">
+                <div className="mb-7">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                    Book a ride
+                  </p>
 
-                <div className="p-6 sm:p-8 lg:p-10">
-                  <div className="mb-8">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                      Book a ride
-                    </p>
+                  <h3 className="mt-2 text-2xl font-bold">
+                    Tell us where you want to go.
+                  </h3>
+                </div>
 
-                    <h3 className="mt-2 text-2xl font-bold">
-                      Get where you need to go.
-                    </h3>
+                {/* PICKUP */}
 
-                    <p className="mt-2 text-sm leading-6 text-slate-400">
-                      Search for your pickup and destination.
-                    </p>
-                  </div>
+                <div className="relative z-50 mb-4">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Pickup
+                  </label>
 
-                  <div className="space-y-4">
-                    {/* PICKUP */}
-
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500/10">
-                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                      </div>
-
-                      <input
-                        value={pickupText}
-                        onChange={(event) => {
-                          setPickup(null);
-
-                          setPickupText(event.target.value);
-                        }}
-                        placeholder="Pickup location"
-                        className="w-full rounded-2xl border border-slate-700 bg-slate-900 py-4 pl-14 pr-12 text-sm text-white outline-none placeholder:text-slate-500 focus:border-slate-400"
-                      />
-
-                      {pickupText && (
-                        <button
-                          type="button"
-                          onClick={clearPickup}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:text-white"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-
-                      {pickupSearching && <SearchLoading />}
-
-                      {pickupResults.length > 0 && (
-                        <LocationResults
-                          results={pickupResults}
-                          onSelect={selectPickup}
-                        />
-                      )}
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500/10">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                     </div>
 
-                    {/* DESTINATION */}
+                    <input
+                      value={pickupText}
+                      onChange={(event) => {
+                        setPickup(null);
+                        setPickupText(event.target.value);
+                        setRoute(null);
+                      }}
+                      placeholder="Enter pickup location"
+                      className="w-full rounded-2xl border border-slate-800 bg-slate-900 py-4 pl-14 pr-12 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 focus:border-slate-600"
+                    />
 
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-red-500/10">
-                        <MapPin size={15} className="text-red-400" />
-                      </div>
+                    {pickupSearching && <SearchLoading />}
 
-                      <input
-                        value={destinationText}
-                        onChange={(event) => {
-                          setDestination(null);
-
-                          setDestinationText(event.target.value);
-                        }}
-                        placeholder="Where to?"
-                        className="w-full rounded-2xl border border-slate-700 bg-slate-900 py-4 pl-14 pr-12 text-sm text-white outline-none placeholder:text-slate-500 focus:border-slate-400"
-                      />
-
-                      {destinationText && (
-                        <button
-                          type="button"
-                          onClick={clearDestination}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:text-white"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-
-                      {destinationSearching && <SearchLoading />}
-
-                      {destinationResults.length > 0 && (
-                        <LocationResults
-                          results={destinationResults}
-                          onSelect={selectDestination}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ROUTE LOADING */}
-
-                  {routeLoading && (
-                    <div className="mt-5 flex items-center gap-2 text-sm text-slate-400">
-                      <Loader2 size={16} className="animate-spin" />
-                      Calculating road route...
-                    </div>
-                  )}
-
-                  {/* ROUTE ERROR */}
-
-                  {routeError && (
-                    <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-                      {routeError}
-                    </div>
-                  )}
-
-                  {/* ROUTE */}
-
-                  {route && (
-                    <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-900 p-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        <RouteStat
-                          label="Distance"
-                          value={formatDistance(route.distance)}
-                        />
-
-                        <RouteStat
-                          label="ETA"
-                          value={formatDuration(route.duration)}
-                        />
-
-                        <RouteStat label="Est. fare" value={`৳${fare}`} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* REQUEST */}
-
-                  <button
-                    type="button"
-                    onClick={handleRequestRide}
-                    disabled={
-                      !pickup ||
-                      !destination ||
-                      !route ||
-                      routeLoading ||
-                      rideLoading
-                    }
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 text-sm font-bold text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {rideLoading ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Requesting...
-                      </>
-                    ) : (
-                      <>
-                        <Car size={18} />
-                        Request a ride
-                      </>
+                    {pickup && (
+                      <button
+                        type="button"
+                        onClick={clearPickup}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"
+                      >
+                        <X size={16} />
+                      </button>
                     )}
-                  </button>
+                  </div>
 
-                  <div className="mt-5 flex items-center gap-2 text-xs text-slate-500">
-                    <ShieldCheck size={15} />
-                    Safe and reliable rides
+                  {!pickup && pickupResults.length > 0 && (
+                    <LocationResults
+                      results={pickupResults}
+                      onSelect={selectPickup}
+                    />
+                  )}
+                </div>
+
+                {/* DESTINATION */}
+
+                <div className="relative z-40 mb-6">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Destination
+                  </label>
+
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-red-500/10">
+                      <MapPin size={15} className="text-red-400" />
+                    </div>
+
+                    <input
+                      value={destinationText}
+                      onChange={(event) => {
+                        setDestination(null);
+
+                        setDestinationText(event.target.value);
+
+                        setRoute(null);
+                      }}
+                      placeholder="Where are you going?"
+                      className="w-full rounded-2xl border border-slate-800 bg-slate-900 py-4 pl-14 pr-12 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 focus:border-slate-600"
+                    />
+
+                    {destinationSearching && <SearchLoading />}
+
+                    {destination && (
+                      <button
+                        type="button"
+                        onClick={clearDestination}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {!destination && destinationResults.length > 0 && (
+                    <LocationResults
+                      results={destinationResults}
+                      onSelect={selectDestination}
+                    />
+                  )}
+                </div>
+
+                {/* VEHICLE */}
+
+                <div className="mb-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Choose your vehicle
+                    </label>
+
+                    <span className="text-xs font-semibold text-slate-500">
+                      Selected:{" "}
+                      <span className="text-white">
+                        {formatVehicleType(vehicleType)}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <VehicleOption
+                      type="car"
+                      label="Car"
+                      description="Comfort"
+                      icon={<Car size={19} />}
+                      selected={vehicleType === "car"}
+                      onClick={() => setVehicleType("car")}
+                    />
+
+                    <VehicleOption
+                      type="bike"
+                      label="Bike"
+                      description="Fast"
+                      icon={<Bike size={19} />}
+                      selected={vehicleType === "bike"}
+                      onClick={() => setVehicleType("bike")}
+                    />
+
+                    <VehicleOption
+                      type="cng"
+                      label="CNG"
+                      description="Economy"
+                      icon={<Car size={19} />}
+                      selected={vehicleType === "cng"}
+                      onClick={() => setVehicleType("cng")}
+                    />
                   </div>
                 </div>
 
-                {/* MAP */}
+                {routeLoading && (
+                  <div className="mb-5 flex items-center gap-3 rounded-2xl bg-slate-900 p-4 text-sm text-slate-400">
+                    <Loader2 size={18} className="animate-spin" />
+                    Calculating route...
+                  </div>
+                )}
 
-                <div className="min-h-[430px] bg-slate-800 lg:min-h-[560px]">
-                  <MapView
-                    pickup={pickup}
-                    destination={destination}
-                    route={route}
-                  />
-                </div>
+                {routeError && (
+                  <div className="mb-5 rounded-2xl border border-red-900/50 bg-red-950/40 p-4 text-sm leading-6 text-red-300">
+                    {routeError}
+                  </div>
+                )}
+
+                {route && (
+                  <div className="mb-5 grid grid-cols-3 gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                    <RouteStat
+                      label="Distance"
+                      value={formatDistance(route.distanceKm)}
+                    />
+
+                    <RouteStat
+                      label="Time"
+                      value={formatDuration(route.durationMinutes)}
+                    />
+
+                    <RouteStat label="Fare" value={`৳${fare}`} />
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleRequestRide}
+                  disabled={
+                    rideLoading ||
+                    routeLoading ||
+                    !route ||
+                    !pickup ||
+                    !destination
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 text-sm font-bold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {rideLoading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Requesting ride...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation size={18} />
+                      Request {formatVehicleType(vehicleType)}
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* MAP
+                  IMPORTANT:
+                  z-0 keeps map below navbar
+              */}
+
+              <div className="relative z-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <MapView
+                  pickup={pickup}
+                  destination={destination}
+                  route={route}
+                />
               </div>
             </section>
           )}
 
-          {/* ==================================================
-              STATS
-          ================================================== */}
+          {/* STATS */}
 
-          <section className="mt-8 grid gap-4 sm:grid-cols-3">
+          <section className="relative z-0 mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               icon={Car}
-              label="Completed rides"
-              value={completedRides}
+              label="Total rides"
+              value={rideHistory.length}
             />
 
             <StatCard icon={Clock3} label="This month" value={monthlyRides} />
@@ -1250,59 +1203,46 @@ export default function PassengerDashboard() {
             <StatCard icon={Star} label="Rating" value="—" />
           </section>
 
-          {/* ==================================================
-              HISTORY
-          ================================================== */}
+          {/* HISTORY */}
 
-          <section className="mt-8">
-            <div className="mb-4 flex items-center justify-between">
+          <section className="relative z-0">
+            <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
                   Activity
                 </p>
 
-                <h3 className="mt-1 text-xl font-bold">Recent rides</h3>
+                <h3 className="mt-1 text-2xl font-bold">Recent rides</h3>
               </div>
-
-              <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-              >
-                <RefreshCw
-                  size={14}
-                  className={refreshing ? "animate-spin" : ""}
-                />
-                Refresh
-              </button>
             </div>
 
             {historyLoading ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+              <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
                 <Loader2
-                  size={22}
+                  size={24}
                   className="mx-auto animate-spin text-slate-400"
                 />
 
-                <p className="mt-3 text-sm text-slate-500">Loading rides...</p>
+                <p className="mt-3 text-sm text-slate-400">
+                  Loading your ride history...
+                </p>
               </div>
             ) : rideHistory.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                   <Car size={22} className="text-slate-400" />
                 </div>
 
                 <h4 className="mt-4 font-bold">No rides yet</h4>
 
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                  Your rides will appear here.
+                <p className="mt-1 text-sm text-slate-400">
+                  Your completed rides will appear here.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {rideHistory.slice(0, 5).map((ride) => (
-                  <RecentRide key={ride._id} ride={ride} />
+                {rideHistory.slice(0, 10).map((ride) => (
+                  <RecentRide key={ride.id || ride._id} ride={ride} />
                 ))}
               </div>
             )}
@@ -1315,61 +1255,72 @@ export default function PassengerDashboard() {
 
 /*
 |--------------------------------------------------------------------------
-| DRIVER INFO
+| COMPONENTS
 |--------------------------------------------------------------------------
 */
 
+function VehicleIcon({ type }) {
+  if (type === "bike") {
+    return <Bike size={16} />;
+  }
+
+  return <Car size={16} />;
+}
+
 function DriverInfo({ icon, label, value }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+    <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+      <div className="flex items-center gap-2 text-slate-400">
         {icon}
-      </div>
 
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <span className="text-[10px] font-bold uppercase tracking-wider">
           {label}
-        </p>
-
-        <p className="mt-0.5 text-sm font-bold capitalize text-slate-900">
-          {value}
-        </p>
+        </span>
       </div>
+
+      <p className="mt-2 text-sm font-bold text-slate-900">{value}</p>
     </div>
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| DRIVER STATUS
-|--------------------------------------------------------------------------
-*/
+function VehicleOption({ type, label, description, icon, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`relative rounded-2xl border p-4 text-left transition ${
+        selected
+          ? "border-white bg-white text-slate-950 shadow-lg"
+          : "border-slate-800 bg-slate-900 text-white hover:border-slate-600"
+      }`}
+    >
+      {selected && (
+        <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
+          <CheckCircle2 size={14} />
+        </span>
+      )}
 
-function getDriverStatus(status) {
-  if (status === "accepted") {
-    return "Accepted";
-  }
+      <div
+        className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+          selected ? "bg-slate-100" : "bg-slate-800"
+        }`}
+      >
+        {icon}
+      </div>
 
-  if (status === "driver_arriving") {
-    return "Arriving";
-  }
+      <p className="mt-3 text-sm font-bold">{label}</p>
 
-  if (status === "in_progress") {
-    return "On trip";
-  }
+      <p className="mt-1 text-[11px] text-slate-500">{description}</p>
 
-  return "Assigned";
+      <span className="sr-only">Vehicle type: {type}</span>
+    </button>
+  );
 }
-
-/*
-|--------------------------------------------------------------------------
-| LOCATION RESULTS
-|--------------------------------------------------------------------------
-*/
 
 function LocationResults({ results, onSelect }) {
   return (
-    <div className="absolute left-0 right-0 top-full z-[1000] mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
+    <div className="absolute left-0 right-0 top-full z-[2000] mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
       {results.map((location) => (
         <button
           type="button"
@@ -1394,12 +1345,6 @@ function LocationResults({ results, onSelect }) {
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| SEARCH LOADING
-|--------------------------------------------------------------------------
-*/
-
 function SearchLoading() {
   return (
     <div className="absolute right-4 top-1/2 z-10 -translate-y-1/2">
@@ -1407,12 +1352,6 @@ function SearchLoading() {
     </div>
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| LOCATION CARD
-|--------------------------------------------------------------------------
-*/
 
 function LocationCard({ label, value, color }) {
   return (
@@ -1436,12 +1375,6 @@ function LocationCard({ label, value, color }) {
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| ROUTE STAT
-|--------------------------------------------------------------------------
-*/
-
 function RouteStat({ label, value }) {
   return (
     <div>
@@ -1453,12 +1386,6 @@ function RouteStat({ label, value }) {
     </div>
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| RIDE INFO
-|--------------------------------------------------------------------------
-*/
 
 function RideInfo({ label, value }) {
   return (
@@ -1473,12 +1400,6 @@ function RideInfo({ label, value }) {
     </div>
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| STAT CARD
-|--------------------------------------------------------------------------
-*/
 
 function StatCard({ icon: Icon, label, value }) {
   return (
@@ -1495,12 +1416,6 @@ function StatCard({ icon: Icon, label, value }) {
     </div>
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| RECENT RIDE
-|--------------------------------------------------------------------------
-*/
 
 function RecentRide({ ride }) {
   const statusClass =
@@ -1549,6 +1464,12 @@ function RecentRide({ ride }) {
               </span>
             </div>
           )}
+
+          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+            <VehicleIcon type={ride.vehicleType} />
+
+            <span>{formatVehicleType(ride.vehicleType)}</span>
+          </div>
         </div>
 
         <div className="text-left sm:text-right">
@@ -1571,12 +1492,6 @@ function RecentRide({ ride }) {
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| SIDEBAR ITEM
-|--------------------------------------------------------------------------
-*/
-
 function SidebarItem({ icon: Icon, label, active = false }) {
   return (
     <button
@@ -1588,7 +1503,6 @@ function SidebarItem({ icon: Icon, label, active = false }) {
       }`}
     >
       <Icon size={18} />
-
       {label}
     </button>
   );
@@ -1596,7 +1510,7 @@ function SidebarItem({ icon: Icon, label, active = false }) {
 
 /*
 |--------------------------------------------------------------------------
-| INITIALS
+| HELPERS
 |--------------------------------------------------------------------------
 */
 
@@ -1611,11 +1525,17 @@ function getInitials(name = "") {
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| DISTANCE
-|--------------------------------------------------------------------------
-*/
+function formatVehicleType(type) {
+  if (type === "bike") {
+    return "Bike";
+  }
+
+  if (type === "cng") {
+    return "CNG";
+  }
+
+  return "Car";
+}
 
 function safeDistance(value) {
   const distance = Number(value);
@@ -1627,12 +1547,6 @@ function safeDistance(value) {
   return `${distance.toFixed(1)} km`;
 }
 
-/*
-|--------------------------------------------------------------------------
-| DURATION
-|--------------------------------------------------------------------------
-*/
-
 function safeDuration(value) {
   const duration = Number(value);
 
@@ -1642,12 +1556,6 @@ function safeDuration(value) {
 
   return `${Math.round(duration)} min`;
 }
-
-/*
-|--------------------------------------------------------------------------
-| DATE
-|--------------------------------------------------------------------------
-*/
 
 function formatRideDate(date) {
   if (!date) {
@@ -1669,12 +1577,6 @@ function formatRideDate(date) {
   });
 }
 
-/*
-|--------------------------------------------------------------------------
-| STATUS
-|--------------------------------------------------------------------------
-*/
-
 function formatStatus(status) {
   if (!status) {
     return "Unknown";
@@ -1685,54 +1587,50 @@ function formatStatus(status) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-/*
-|--------------------------------------------------------------------------
-| ACTIVE STATUS LABEL
-|--------------------------------------------------------------------------
-*/
-
 function getRideStatusLabel(status) {
   const labels = {
     requested: "Ride Requested",
-
     searching: "Finding Driver",
-
     accepted: "Driver Accepted",
-
     driver_arriving: "Driver Arriving",
-
     in_progress: "Ride In Progress",
-
     completed: "Ride Completed",
-
     cancelled: "Ride Cancelled",
   };
 
   return labels[status] || "Ride Status";
 }
 
-/*
-|--------------------------------------------------------------------------
-| ACTIVE STATUS DESCRIPTION
-|--------------------------------------------------------------------------
-*/
-
 function getRideStatusDescription(status) {
   const descriptions = {
     requested: "Your ride request has been sent.",
-
     searching: "We're looking for an available driver.",
-
     accepted: "Your driver has accepted the ride.",
-
     driver_arriving: "Your driver is coming to the pickup location.",
-
     in_progress: "You are currently on your way.",
-
     completed: "You have reached your destination.",
-
     cancelled: "This ride has been cancelled.",
   };
 
   return descriptions[status] || "Your ride status is being updated.";
+}
+
+function getDriverStatus(status) {
+  if (status === "accepted") {
+    return "Accepted";
+  }
+
+  if (status === "driver_arriving") {
+    return "Coming to pickup";
+  }
+
+  if (status === "in_progress") {
+    return "On trip";
+  }
+
+  if (status === "completed") {
+    return "Completed";
+  }
+
+  return "Connected";
 }
