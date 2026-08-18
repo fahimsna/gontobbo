@@ -15,6 +15,13 @@ const rideSchema = new mongoose.Schema(
       default: null,
     },
 
+    rejectedDrivers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     pickup: {
       address: {
         type: String,

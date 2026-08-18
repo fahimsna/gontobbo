@@ -48,7 +48,8 @@ export default function PassengerDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [pickupText, setPickupText] = useState("");
-  const [destinationText] = useState("");
+
+  const [destinationText, setDestinationText] = useState("");
 
   const [pickup, setPickup] = useState(null);
   const [destination, setDestination] = useState(null);
@@ -328,10 +329,10 @@ export default function PassengerDashboard() {
       setRideHistory(validRides);
 
       /*
-          |--------------------------------------------------------------------------
-          | FIND AN UNRATED COMPLETED RIDE
-          |--------------------------------------------------------------------------
-          */
+        |--------------------------------------------------------------------------
+        | FIND AN UNRATED COMPLETED RIDE
+        |--------------------------------------------------------------------------
+        */
 
       try {
         const ratedIds = JSON.parse(
@@ -621,8 +622,11 @@ export default function PassengerDashboard() {
     }
 
     setRatingRide(null);
+
     setSelectedRating(0);
+
     setRatingComment("");
+
     setRatingMessage("");
   };
 
@@ -647,10 +651,10 @@ export default function PassengerDashboard() {
       await rateRide(rideId, selectedRating, ratingComment.trim());
 
       /*
-        |--------------------------------------------------------------------------
-        | SAVE LOCALLY SO THE SAME RIDE DOES NOT KEEP ASKING
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | SAVE LOCALLY SO THE SAME RIDE DOES NOT KEEP ASKING
+      |--------------------------------------------------------------------------
+      */
 
       try {
         const existing = JSON.parse(
@@ -676,7 +680,9 @@ export default function PassengerDashboard() {
           String(ride?._id || ride?.id) === String(rideId)
             ? {
                 ...ride,
+
                 rating: selectedRating,
+
                 ratingComment: ratingComment.trim(),
               }
             : ride,
@@ -1216,6 +1222,8 @@ export default function PassengerDashboard() {
                       value={destinationText}
                       onChange={(event) => {
                         setDestination(null);
+
+                        setDestinationText(event.target.value);
 
                         setRoute(null);
                       }}

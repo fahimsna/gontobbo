@@ -12,6 +12,7 @@ import {
   getAvailableRides,
   getDriverRides,
   acceptRide,
+  rejectRide,
   markDriverArriving,
   startRide,
   completeRide,
@@ -21,43 +22,21 @@ import { rateRide, getRideRating } from "../controllers/ratingController.js";
 
 const router = express.Router();
 
-/*
-|--------------------------------------------------------------------------
-| PASSENGER
-|--------------------------------------------------------------------------
-*/
-
 router.post("/", protect, createRide);
 
 router.get("/my", protect, getMyRides);
 
 router.get("/active", protect, getActiveRide);
 
-/*
-|--------------------------------------------------------------------------
-| DRIVER
-|--------------------------------------------------------------------------
-|
-| IMPORTANT:
-|
-| These routes MUST come before /:id.
-|
-|--------------------------------------------------------------------------
-*/
-
 router.get("/available", protect, driverOnly, getAvailableRides);
 
 router.get("/driver/my", protect, driverOnly, getDriverRides);
 
-/*
-|--------------------------------------------------------------------------
-| RIDE ACTIONS
-|--------------------------------------------------------------------------
-*/
-
 router.patch("/:id/cancel", protect, cancelRide);
 
 router.patch("/:id/accept", protect, driverOnly, acceptRide);
+
+router.patch("/:id/reject", protect, driverOnly, rejectRide);
 
 router.patch("/:id/arriving", protect, driverOnly, markDriverArriving);
 
@@ -65,37 +44,9 @@ router.patch("/:id/start", protect, driverOnly, startRide);
 
 router.patch("/:id/complete", protect, driverOnly, completeRide);
 
-/*
-|--------------------------------------------------------------------------
-| RATING
-|--------------------------------------------------------------------------
-|
-| Passenger can rate only their own completed ride.
-|
-| GET:
-|
-| GET /api/rides/:id/rating
-|
-| POST:
-|
-| POST /api/rides/:id/rating
-|
-|--------------------------------------------------------------------------
-*/
-
 router.get("/:id/rating", protect, getRideRating);
 
 router.post("/:id/rating", protect, rateRide);
-
-/*
-|--------------------------------------------------------------------------
-| SINGLE RIDE
-|--------------------------------------------------------------------------
-|
-| MUST BE LAST.
-|
-|--------------------------------------------------------------------------
-*/
 
 router.get("/:id", protect, getRideById);
 
