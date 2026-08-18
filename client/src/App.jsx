@@ -17,6 +17,49 @@ import { useAuth } from "./context/AuthContext";
 
 /*
 |--------------------------------------------------------------------------
+| LOADING SCREEN
+|--------------------------------------------------------------------------
+*/
+
+function RouteLoading({ message = "Loading..." }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-indigo-400" />
+
+        <p className="text-sm text-slate-400">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ROLE DASHBOARD
+|--------------------------------------------------------------------------
+|
+| This is the central role-based redirect.
+|
+*/
+
+function getDashboardPath(role) {
+  switch (role) {
+    case "passenger":
+      return "/passenger/dashboard";
+
+    case "driver":
+      return "/driver/dashboard";
+
+    case "admin":
+      return "/admin/dashboard";
+
+    default:
+      return "/";
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
 | PROTECTED ROUTE
 |--------------------------------------------------------------------------
 */
@@ -25,15 +68,7 @@ function ProtectedRoute({ children }) {
   const { loading, isAuthenticated } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-indigo-400" />
-
-          <p className="text-sm text-slate-400">Loading...</p>
-        </div>
-      </div>
-    );
+    return <RouteLoading />;
   }
 
   if (!isAuthenticated) {
@@ -45,67 +80,23 @@ function ProtectedRoute({ children }) {
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN ROUTE
+| ROLE ROUTE
 |--------------------------------------------------------------------------
 */
 
-function AdminRoute({ children }) {
-  const { loading, isAuthenticated, isAdmin } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-blue-400" />
-
-          <p className="text-sm text-slate-400">Loading admin panel...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-}
-
-/*
-|--------------------------------------------------------------------------
-| DRIVER ROUTE
-|--------------------------------------------------------------------------
-*/
-
-function DriverRoute({ children }) {
+function RoleRoute({ children, role }) {
   const { loading, isAuthenticated, user } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-indigo-400" />
-
-          <p className="text-sm text-slate-400">Loading...</p>
-        </div>
-      </div>
-    );
+    return <RouteLoading />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  /*
-   * Only users whose account role is "driver" can enter
-   * the driver area.
-   */
-  if (user?.role !== "driver") {
-    return <Navigate to="/" replace />;
+  if (user?.role !== role) {
+    return <Navigate to={getDashboardPath(user?.role)} replace />;
   }
 
   return children;
@@ -113,34 +104,26 @@ function DriverRoute({ children }) {
 
 /*
 |--------------------------------------------------------------------------
-| PASSENGER ROUTE
+| PUBLIC LOGIN REDIRECT
 |--------------------------------------------------------------------------
+|
+| If an already authenticated user opens /login,
+| send them to their own dashboard.
+|
 */
 
-function PassengerRoute({ children }) {
+function LoginRoute() {
   const { loading, isAuthenticated, user } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-indigo-400" />
-
-          <p className="text-sm text-slate-400">Loading...</p>
-        </div>
-      </div>
-    );
+    return <RouteLoading />;
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (isAuthenticated && user?.role) {
+    return <Navigate to={getDashboardPath(user.role)} replace />;
   }
 
-  if (user?.role !== "passenger") {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
+  return <Login />;
 }
 
 /*
@@ -153,110 +136,134 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ============================================================
-            PUBLIC
-        ============================================================ */}
+        {/* ==========================================================
+              PUBLIC
+          ========================================================== */}
 
         <Route path="/" element={<Home />} />
 
         <Route path="/home" element={<Home />} />
 
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginRoute />} />
 
         <Route path="/register" element={<Register />} />
 
-        {/* ============================================================
-            DRIVER
-        ============================================================ */}
+        {/* ==========================================================
+              DRIVER
+          ========================================================== */}
 
         <Route
           path="/driver"
           element={
-            <DriverRoute>
+            <RoleRoute role="driver">
               <DriverDashboard />
-            </DriverRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/driver/dashboard"
           element={
-            <DriverRoute>
+            <RoleRoute role="driver">
               <DriverDashboard />
-            </DriverRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/driver/apply"
           element={
-            <DriverRoute>
+            <RoleRoute role="driver">
               <DriverApplication />
-            </DriverRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/driver/application"
           element={
-            <DriverRoute>
+            <RoleRoute role="driver">
               <DriverApplication />
-            </DriverRoute>
+            </RoleRoute>
           }
         />
 
-        {/* ============================================================
-            PASSENGER
-        ============================================================ */}
+        {/* ==========================================================
+              PASSENGER
+          ========================================================== */}
 
         <Route
           path="/passenger"
           element={
-            <PassengerRoute>
+            <RoleRoute role="passenger">
               <PassengerDashboard />
-            </PassengerRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/passenger/dashboard"
           element={
-            <PassengerRoute>
+            <RoleRoute role="passenger">
               <PassengerDashboard />
-            </PassengerRoute>
+            </RoleRoute>
           }
         />
 
-        {/* ============================================================
-            ADMIN
-        ============================================================ */}
+        {/* ==========================================================
+              ADMIN
+          ========================================================== */}
 
         <Route
           path="/admin"
           element={
-            <AdminRoute>
+            <RoleRoute role="admin">
               <AdminDashboard />
-            </AdminRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/admin/dashboard"
           element={
-            <AdminRoute>
+            <RoleRoute role="admin">
               <AdminDashboard />
-            </AdminRoute>
+            </RoleRoute>
           }
         />
 
-        {/* ============================================================
-            FALLBACK
-        ============================================================ */}
+        {/* ==========================================================
+              FALLBACK
+          ========================================================== */}
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<FallbackRoute />} />
       </Routes>
     </BrowserRouter>
   );
 };
+
+/*
+|--------------------------------------------------------------------------
+| FALLBACK ROUTE
+|--------------------------------------------------------------------------
+|
+| If someone manually enters an invalid URL while logged in,
+| don't blindly send them to the homepage.
+|
+*/
+
+function FallbackRoute() {
+  const { loading, isAuthenticated, user } = useAuth();
+
+  if (loading) {
+    return <RouteLoading />;
+  }
+
+  if (isAuthenticated && user?.role) {
+    return <Navigate to={getDashboardPath(user.role)} replace />;
+  }
+
+  return <Navigate to="/" replace />;
+}
 
 export default App;

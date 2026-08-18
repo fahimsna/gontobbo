@@ -21,6 +21,12 @@ export default function Login() {
 
   const [error, setError] = useState("");
 
+  /*
+  |--------------------------------------------------------------------------
+  | INPUT CHANGE
+  |--------------------------------------------------------------------------
+  */
+
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -30,10 +36,59 @@ export default function Login() {
     }));
   };
 
+  /*
+  |--------------------------------------------------------------------------
+  | ROLE REDIRECT
+  |--------------------------------------------------------------------------
+  |
+  | Every role has an explicit destination.
+  |
+  */
+
+  const redirectUser = (user) => {
+    const role = user?.role;
+
+    console.log("LOGIN ROLE:", role);
+
+    switch (role) {
+      case "passenger":
+        navigate("/passenger/dashboard", {
+          replace: true,
+        });
+        return;
+
+      case "driver":
+        navigate("/driver/dashboard", {
+          replace: true,
+        });
+        return;
+
+      case "admin":
+        navigate("/admin/dashboard", {
+          replace: true,
+        });
+        return;
+
+      default:
+        console.error("Unknown user role:", role);
+
+        setError(
+          "Your account role is not recognized. Please contact support.",
+        );
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOGIN
+  |--------------------------------------------------------------------------
+  */
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError("");
+
     setLoading(true);
 
     try {
@@ -44,45 +99,48 @@ export default function Login() {
       console.log("LOGIN RESPONSE:", data);
 
       /*
-      |--------------------------------------------------------------------------
-      | Store authentication
-      |--------------------------------------------------------------------------
-      */
+        |--------------------------------------------------------------------------
+        | VALIDATE SERVER RESPONSE
+        |--------------------------------------------------------------------------
+        */
+
+      if (!data?.success) {
+        throw new Error(data?.message || "Login failed.");
+      }
+
+      if (!data?.token) {
+        throw new Error(
+          "Login succeeded but no authentication token was returned.",
+        );
+      }
+
+      if (!data?.user) {
+        throw new Error(
+          "Login succeeded but no user information was returned.",
+        );
+      }
+
+      /*
+        |--------------------------------------------------------------------------
+        | SAVE AUTHENTICATION
+        |--------------------------------------------------------------------------
+        */
 
       login(data.token, data.user);
 
       /*
-      |--------------------------------------------------------------------------
-      | Redirect based on role
-      |--------------------------------------------------------------------------
-      */
-
-      const role = data.user?.role;
-
-      if (role === "driver") {
-        navigate("/driver/dashboard", {
-          replace: true,
-        });
-      } else if (role === "admin") {
-        navigate("/admin/dashboard", {
-          replace: true,
-        });
-      } else {
-        /*
         |--------------------------------------------------------------------------
-        | Passenger
+        | REDIRECT BY ROLE
         |--------------------------------------------------------------------------
         */
 
-        navigate("/dashboard", {
-          replace: true,
-        });
-      }
+      redirectUser(data.user);
     } catch (error) {
       console.error("Login error:", error);
 
       setError(
         error?.response?.data?.message ||
+          error?.message ||
           "Login failed. Please check your email and password.",
       );
     } finally {
@@ -90,11 +148,17 @@ export default function Login() {
     }
   };
 
+  /*
+  |--------------------------------------------------------------------------
+  | UI
+  |--------------------------------------------------------------------------
+  */
+
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md items-center">
         <div className="w-full">
-          {/* Logo */}
+          {/* LOGO */}
 
           <div className="mb-8 text-center">
             <Link to="/" className="inline-flex items-center gap-3">
@@ -106,7 +170,7 @@ export default function Login() {
             </Link>
           </div>
 
-          {/* Card */}
+          {/* CARD */}
 
           <div className="rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
             <div className="mb-8">
@@ -123,7 +187,7 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Error */}
+            {/* ERROR */}
 
             {error && (
               <div className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
@@ -131,8 +195,10 @@ export default function Login() {
               </div>
             )}
 
+            {/* FORM */}
+
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email */}
+              {/* EMAIL */}
 
               <div>
                 <label
@@ -162,7 +228,7 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Password */}
+              {/* PASSWORD */}
 
               <div>
                 <label
@@ -194,13 +260,16 @@ export default function Login() {
                     type="button"
                     onClick={() => setShowPassword((previous) => !previous)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
 
-              {/* Submit */}
+              {/* SUBMIT */}
 
               <button
                 type="submit"
@@ -211,7 +280,7 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Register */}
+            {/* REGISTER */}
 
             <p className="mt-7 text-center text-sm text-slate-500">
               Don't have an account?{" "}
