@@ -2,28 +2,37 @@ import api from "./api";
 
 /*
 |--------------------------------------------------------------------------
-| Passenger - Create Ride
+| PASSENGER
 |--------------------------------------------------------------------------
 */
 
-export const createRide = async ({
-  pickup,
-  destination,
-  route,
-  estimatedFare,
-  vehicleType = "car",
-}) => {
-  const response = await api.post("/rides", {
-    pickup,
-    destination,
+export const createRide = async (rideData) => {
+  const response = await api.post("/rides", rideData);
 
-    distance: route?.distance || 0,
+  return response.data;
+};
 
-    duration: route?.duration || 0,
+export const getMyRides = async () => {
+  const response = await api.get("/rides/my");
 
-    estimatedFare: estimatedFare || 0,
+  return response.data;
+};
 
-    vehicleType,
+export const getActiveRide = async () => {
+  const response = await api.get("/rides/active");
+
+  return response.data;
+};
+
+export const getRideById = async (rideId) => {
+  const response = await api.get(`/rides/${rideId}`);
+
+  return response.data;
+};
+
+export const cancelRide = async (rideId, reason = "") => {
+  const response = await api.patch(`/rides/${rideId}/cancel`, {
+    reason,
   });
 
   return response.data;
@@ -31,108 +40,42 @@ export const createRide = async ({
 
 /*
 |--------------------------------------------------------------------------
-| Passenger - My Rides
-|--------------------------------------------------------------------------
-*/
-
-export const getMyRides = async () => {
-  const response = await api.get("/rides/my-rides");
-
-  return response.data;
-};
-
-/*
-|--------------------------------------------------------------------------
-| Passenger - Single Ride
-|--------------------------------------------------------------------------
-*/
-
-export const getRideById = async (id) => {
-  const response = await api.get(`/rides/${id}`);
-
-  return response.data;
-};
-
-/*
-|--------------------------------------------------------------------------
-| Passenger - Cancel Ride
-|--------------------------------------------------------------------------
-*/
-
-export const cancelRide = async (id) => {
-  const response = await api.patch(`/rides/${id}/cancel`);
-
-  return response.data;
-};
-
-/*
-|--------------------------------------------------------------------------
-| Driver - Available Rides
+| DRIVER
 |--------------------------------------------------------------------------
 */
 
 export const getAvailableRides = async () => {
-  const response = await api.get("/rides/driver/available");
+  const response = await api.get("/rides/available");
 
   return response.data;
 };
-
-/*
-|--------------------------------------------------------------------------
-| Driver - Accept Ride
-|--------------------------------------------------------------------------
-*/
-
-export const acceptRide = async (id) => {
-  const response = await api.patch(`/rides/driver/${id}/accept`);
-
-  return response.data;
-};
-
-/*
-|--------------------------------------------------------------------------
-| Driver - My Active Rides
-|--------------------------------------------------------------------------
-*/
 
 export const getDriverRides = async () => {
-  const response = await api.get("/rides/driver/my-rides");
+  const response = await api.get("/rides/driver/my");
 
   return response.data;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Driver - Mark Arriving
-|--------------------------------------------------------------------------
-*/
-
-export const markDriverArriving = async (id) => {
-  const response = await api.patch(`/rides/driver/${id}/arriving`);
+export const acceptRide = async (rideId) => {
+  const response = await api.patch(`/rides/${rideId}/accept`);
 
   return response.data;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Driver - Start Ride
-|--------------------------------------------------------------------------
-*/
-
-export const startRide = async (id) => {
-  const response = await api.patch(`/rides/driver/${id}/start`);
+export const markDriverArriving = async (rideId) => {
+  const response = await api.patch(`/rides/${rideId}/arriving`);
 
   return response.data;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Driver - Complete Ride
-|--------------------------------------------------------------------------
-*/
+export const startRide = async (rideId) => {
+  const response = await api.patch(`/rides/${rideId}/start`);
 
-export const completeRide = async (id) => {
-  const response = await api.patch(`/rides/driver/${id}/complete`);
+  return response.data;
+};
+
+export const completeRide = async (rideId) => {
+  const response = await api.patch(`/rides/${rideId}/complete`);
 
   return response.data;
 };

@@ -25,6 +25,8 @@ const router = express.Router();
 
 /*
  * POST /api/drivers/apply
+ *
+ * Any authenticated user can apply.
  */
 router.post("/apply", protect, applyAsDriver);
 
@@ -36,8 +38,21 @@ router.post("/apply", protect, applyAsDriver);
 
 /*
  * GET /api/drivers/me
+ *
+ * IMPORTANT:
+ *
+ * Do NOT use driverOnly here.
+ *
+ * A pending driver must be able to see:
+ *
+ * pending
+ * approved
+ * rejected
+ * suspended
+ *
+ * driverOnly is intentionally NOT used.
  */
-router.get("/me", protect, driverOnly, getMyDriverProfile);
+router.get("/me", protect, getMyDriverProfile);
 
 /*
 |--------------------------------------------------------------------------
@@ -47,11 +62,15 @@ router.get("/me", protect, driverOnly, getMyDriverProfile);
 
 /*
  * PATCH /api/drivers/go-online
+ *
+ * Only approved drivers.
  */
 router.patch("/go-online", protect, driverOnly, goOnline);
 
 /*
  * PATCH /api/drivers/go-offline
+ *
+ * Only approved drivers.
  */
 router.patch("/go-offline", protect, driverOnly, goOffline);
 
@@ -63,6 +82,8 @@ router.patch("/go-offline", protect, driverOnly, goOffline);
 
 /*
  * PATCH /api/drivers/location
+ *
+ * Only approved drivers.
  */
 router.patch("/location", protect, driverOnly, updateDriverLocation);
 
@@ -75,6 +96,8 @@ router.patch("/location", protect, driverOnly, updateDriverLocation);
 /*
  * GET /api/drivers/nearby
  *
+ * Passenger-side endpoint.
+ *
  * Example:
  *
  * /api/drivers/nearby
@@ -83,7 +106,6 @@ router.patch("/location", protect, driverOnly, updateDriverLocation);
  * &maxDistance=5000
  * &vehicleType=bike
  */
-
 router.get("/nearby", protect, getNearbyDrivers);
 
 /*

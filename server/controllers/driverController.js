@@ -71,6 +71,13 @@ export const applyAsDriver = async (req, res) => {
       });
     }
 
+    if (expiryDate <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Driving license must not be expired",
+      });
+    }
+
     /*
     |--------------------------------------------------------------------------
     | VEHICLE
@@ -134,29 +141,8 @@ export const applyAsDriver = async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | CHECK EXISTING APPLICATION
-    |--------------------------------------------------------------------------
-    */
-
-    const existingDriver = await Driver.findOne({
-      user: req.user._id,
-    });
-
-    if (existingDriver) {
-      return res.status(409).json({
-        success: false,
-        message: "You already have a driver application",
-        driver: existingDriver,
-      });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
     | VEHICLE DATA
     |--------------------------------------------------------------------------
-    |
-    | Brand, year and color are optional.
-    |
     */
 
     const vehicleData = {
@@ -178,11 +164,117 @@ export const applyAsDriver = async (req, res) => {
 
     /*
     |--------------------------------------------------------------------------
-    | CREATE DRIVER
+    | CHECK EXISTING APPLICATION
     |--------------------------------------------------------------------------
-    |
-    | currentLocation is intentionally NOT included.
-    |
+    */
+
+    const existingDriver = await Driver.findOne({
+      user: req.user._id,
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | EXISTING APPLICATION
+    |--------------------------------------------------------------------------
+    */
+
+    if (existingDriver) {
+      /*
+      |--------------------------------------------------------------------------
+      | PENDING
+      |--------------------------------------------------------------------------
+      */
+
+      if (existingDriver.status === "pending") {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Your driver application is already pending administrator approval.",
+          driver: existingDriver,
+        });
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | APPROVED
+      |--------------------------------------------------------------------------
+      */
+
+      if (existingDriver.status === "approved") {
+        return res.status(409).json({
+          success: false,
+          message: "Your driver account is already approved.",
+          driver: existingDriver,
+        });
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | SUSPENDED
+      |--------------------------------------------------------------------------
+      */
+
+      if (existingDriver.status === "suspended") {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Your driver account is suspended. Please contact an administrator.",
+          driver: existingDriver,
+        });
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | REJECTED
+      |--------------------------------------------------------------------------
+      |
+      | A rejected driver is allowed to submit a new application.
+      |
+      | We reuse the existing Driver document because the user field
+      | is intentionally unique.
+      |
+      */
+
+      if (existingDriver.status === "rejected") {
+        existingDriver.licenseNumber = licenseNumber.trim().toUpperCase();
+
+        existingDriver.licenseExpiry = expiryDate;
+
+        existingDriver.vehicle = vehicleData;
+
+        existingDriver.status = "pending";
+
+        existingDriver.rejectionReason = "";
+
+        existingDriver.isAvailable = false;
+
+        /*
+         * Keep existing rating and total rides.
+         *
+         * If this driver had previously completed rides before being
+         * rejected/suspended by an administrator, their history should
+         * not be destroyed.
+         */
+
+        await existingDriver.save();
+
+        console.log("RE-SUBMITTED DRIVER APPLICATION:", existingDriver._id);
+
+        return res.status(200).json({
+          success: true,
+
+          message:
+            "Your new driver application has been submitted successfully. Please wait for administrator approval.",
+
+          driver: existingDriver,
+        });
+      }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE NEW DRIVER
+    |--------------------------------------------------------------------------
     */
 
     const driver = await Driver.create({
@@ -233,7 +325,7 @@ export const applyAsDriver = async (req, res) => {
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: "You already have a driver application",
+        message: "A driver application already exists for this account.",
       });
     }
 
@@ -365,15 +457,29 @@ export const updateDriverStatus = async (req, res) => {
       });
     }
 
-    driver.status = status;
+    /*
+    |--------------------------------------------------------------------------
+    | APPROVED
+    |--------------------------------------------------------------------------
+    */
+
+    if (status === "approved") {
+      driver.status = "approved";
+
+      driver.isAvailable = false;
+
+      driver.rejectionReason = "";
+    }
 
     /*
-      |--------------------------------------------------------------------------
-      | REJECTED
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | REJECTED
+    |--------------------------------------------------------------------------
+    */
 
     if (status === "rejected") {
+      driver.status = "rejected";
+
       driver.isAvailable = false;
 
       driver.rejectionReason =
@@ -381,28 +487,18 @@ export const updateDriverStatus = async (req, res) => {
     }
 
     /*
-      |--------------------------------------------------------------------------
-      | SUSPENDED
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | SUSPENDED
+    |--------------------------------------------------------------------------
+    */
 
     if (status === "suspended") {
+      driver.status = "suspended";
+
       driver.isAvailable = false;
 
       driver.rejectionReason =
         rejectionReason?.trim() || "Driver account suspended by administrator";
-    }
-
-    /*
-      |--------------------------------------------------------------------------
-      | APPROVED
-      |--------------------------------------------------------------------------
-      */
-
-    if (status === "approved") {
-      driver.isAvailable = false;
-
-      driver.rejectionReason = "";
     }
 
     await driver.save();
@@ -451,10 +547,10 @@ export const goOnline = async (req, res) => {
     }
 
     /*
-      |--------------------------------------------------------------------------
-      | LOCATION REQUIRED
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | LOCATION REQUIRED
+    |--------------------------------------------------------------------------
+    */
 
     if (
       !driver.currentLocation ||
@@ -522,9 +618,12 @@ export const goOffline = async (req, res) => {
   } catch (error) {
     console.error("Go offline error:", error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Server error while going offline",
+    return res.status(200).json({
+      success: true,
+
+      message: "You are now offline",
+
+      driver,
     });
   }
 };
@@ -544,10 +643,10 @@ export const updateDriverLocation = async (req, res) => {
     const lng = Number(longitude);
 
     /*
-      |--------------------------------------------------------------------------
-      | VALIDATE
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | VALIDATE
+    |--------------------------------------------------------------------------
+    */
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return res.status(400).json({
@@ -582,15 +681,15 @@ export const updateDriverLocation = async (req, res) => {
     }
 
     /*
-      |--------------------------------------------------------------------------
-      | GEOJSON
-      |--------------------------------------------------------------------------
-      |
-      | GeoJSON coordinates are:
-      |
-      | [longitude, latitude]
-      |
-      */
+    |--------------------------------------------------------------------------
+    | GEOJSON
+    |--------------------------------------------------------------------------
+    |
+    | GeoJSON coordinates are:
+    |
+    | [longitude, latitude]
+    |
+    */
 
     driver.currentLocation = {
       type: "Point",
@@ -638,10 +737,10 @@ export const getNearbyDrivers = async (req, res) => {
     const distance = Number(maxDistance);
 
     /*
-      |--------------------------------------------------------------------------
-      | VALIDATION
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | VALIDATION
+    |--------------------------------------------------------------------------
+    */
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return res.status(400).json({
@@ -650,11 +749,25 @@ export const getNearbyDrivers = async (req, res) => {
       });
     }
 
+    if (lat < -90 || lat > 90) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid latitude",
+      });
+    }
+
+    if (lng < -180 || lng > 180) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid longitude",
+      });
+    }
+
     /*
-      |--------------------------------------------------------------------------
-      | QUERY
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | QUERY
+    |--------------------------------------------------------------------------
+    */
 
     const query = {
       status: "approved",
@@ -675,20 +788,20 @@ export const getNearbyDrivers = async (req, res) => {
     };
 
     /*
-      |--------------------------------------------------------------------------
-      | VEHICLE FILTER
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | VEHICLE FILTER
+    |--------------------------------------------------------------------------
+    */
 
     if (vehicleType && ["car", "bike", "cng"].includes(vehicleType)) {
       query["vehicle.type"] = vehicleType;
     }
 
     /*
-      |--------------------------------------------------------------------------
-      | FIND
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | FIND
+    |--------------------------------------------------------------------------
+    */
 
     const drivers = await Driver.find(query)
       .populate("user", "name email phone avatar")

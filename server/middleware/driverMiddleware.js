@@ -2,12 +2,24 @@ import Driver from "../models/Driver.js";
 
 const driverOnly = async (req, res, next) => {
   try {
+    /*
+    |--------------------------------------------------------------------------
+    | AUTHENTICATION
+    |--------------------------------------------------------------------------
+    */
+
     if (!req.user) {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
       });
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND DRIVER PROFILE
+    |--------------------------------------------------------------------------
+    */
 
     const driver = await Driver.findOne({
       user: req.user._id,
@@ -21,20 +33,45 @@ const driverOnly = async (req, res, next) => {
     }
 
     /*
-      |--------------------------------------------------------------------------
-      | Only approved drivers can operate
-      |--------------------------------------------------------------------------
-      */
+    |--------------------------------------------------------------------------
+    | DRIVER STATUS
+    |--------------------------------------------------------------------------
+    */
 
     if (driver.status !== "approved") {
+      let message = "Driver account is not active.";
+
+      if (driver.status === "pending") {
+        message = "Your driver application is still pending approval.";
+      }
+
+      if (driver.status === "rejected") {
+        message =
+          driver.rejectionReason || "Your driver application was rejected.";
+      }
+
+      if (driver.status === "suspended") {
+        message = driver.rejectionReason || "Your driver account is suspended.";
+      }
+
       return res.status(403).json({
         success: false,
-        message:
-          driver.status === "pending"
-            ? "Your driver application is still pending approval"
-            : `Your driver account is ${driver.status}`,
+        message,
+        status: driver.status,
       });
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ATTACH DRIVER
+    |--------------------------------------------------------------------------
+    |
+    | Controllers can now use:
+    |
+    | req.driver
+    |
+    |--------------------------------------------------------------------------
+    */
 
     req.driver = driver;
 
