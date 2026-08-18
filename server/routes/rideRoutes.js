@@ -17,6 +17,8 @@ import {
   completeRide,
 } from "../controllers/rideController.js";
 
+import { rateRide, getRideRating } from "../controllers/ratingController.js";
+
 const router = express.Router();
 
 /*
@@ -37,7 +39,8 @@ router.get("/active", protect, getActiveRide);
 |--------------------------------------------------------------------------
 |
 | IMPORTANT:
-| These MUST come before /:id.
+|
+| These routes MUST come before /:id.
 |
 |--------------------------------------------------------------------------
 */
@@ -61,6 +64,28 @@ router.patch("/:id/arriving", protect, driverOnly, markDriverArriving);
 router.patch("/:id/start", protect, driverOnly, startRide);
 
 router.patch("/:id/complete", protect, driverOnly, completeRide);
+
+/*
+|--------------------------------------------------------------------------
+| RATING
+|--------------------------------------------------------------------------
+|
+| Passenger can rate only their own completed ride.
+|
+| GET:
+|
+| GET /api/rides/:id/rating
+|
+| POST:
+|
+| POST /api/rides/:id/rating
+|
+|--------------------------------------------------------------------------
+*/
+
+router.get("/:id/rating", protect, getRideRating);
+
+router.post("/:id/rating", protect, rateRide);
 
 /*
 |--------------------------------------------------------------------------

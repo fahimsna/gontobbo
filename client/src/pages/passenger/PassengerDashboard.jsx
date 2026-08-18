@@ -37,6 +37,7 @@ import {
   getActiveRide,
   getMyRides,
   cancelRide,
+  rateRide,
 } from "../../services/rideService";
 
 const RIDE_POLL_INTERVAL = 4000;
@@ -47,7 +48,7 @@ export default function PassengerDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [pickupText, setPickupText] = useState("");
-  const [destinationText, setDestinationText] = useState("");
+  const [destinationText] = useState("");
 
   const [pickup, setPickup] = useState(null);
   const [destination, setDestination] = useState(null);
@@ -79,6 +80,18 @@ export default function PassengerDashboard() {
   const [rideLoading, setRideLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  /*
+  |--------------------------------------------------------------------------
+  | DRIVER RATING
+  |--------------------------------------------------------------------------
+  */
+
+  const [ratingRide, setRatingRide] = useState(null);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState("");
 
   const [mounted, setMounted] = useState(true);
 
@@ -313,6 +326,37 @@ export default function PassengerDashboard() {
       });
 
       setRideHistory(validRides);
+
+      /*
+          |--------------------------------------------------------------------------
+          | FIND AN UNRATED COMPLETED RIDE
+          |--------------------------------------------------------------------------
+          */
+
+      try {
+        const ratedIds = JSON.parse(
+          window.localStorage.getItem("gontobbo_rated_ride_ids") || "[]",
+        );
+
+        const ratedSet = new Set(Array.isArray(ratedIds) ? ratedIds : []);
+
+        const unratedCompletedRide = validRides.find((ride) => {
+          const id = ride?._id || ride?.id;
+
+          return (
+            ride?.status === "completed" &&
+            ride?.driver &&
+            id &&
+            !ratedSet.has(String(id))
+          );
+        });
+
+        if (unratedCompletedRide) {
+          setRatingRide((current) => current || unratedCompletedRide);
+        }
+      } catch (storageError) {
+        console.error("Rating storage error:", storageError);
+      }
     } catch (error) {
       console.error("Ride history error:", error);
 
@@ -464,12 +508,6 @@ export default function PassengerDashboard() {
 
         estimatedFare: fare,
 
-        /*
-        |--------------------------------------------------------------------------
-        | IMPORTANT
-        |--------------------------------------------------------------------------
-        */
-
         vehicleType: vehicleType,
       };
 
@@ -559,6 +597,118 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
+  | RATING
+  |--------------------------------------------------------------------------
+  */
+
+  const openRating = (ride) => {
+    if (!ride) {
+      return;
+    }
+
+    setRatingRide(ride);
+
+    setSelectedRating(0);
+
+    setRatingComment("");
+
+    setRatingMessage("");
+  };
+
+  const closeRating = () => {
+    if (ratingLoading) {
+      return;
+    }
+
+    setRatingRide(null);
+    setSelectedRating(0);
+    setRatingComment("");
+    setRatingMessage("");
+  };
+
+  const handleSubmitRating = async () => {
+    const rideId = ratingRide?._id || ratingRide?.id;
+
+    if (!rideId) {
+      setRatingMessage("This ride could not be identified.");
+      return;
+    }
+
+    if (!selectedRating) {
+      setRatingMessage("Please select a rating from 1 to 5 stars.");
+      return;
+    }
+
+    try {
+      setRatingLoading(true);
+
+      setRatingMessage("");
+
+      await rateRide(rideId, selectedRating, ratingComment.trim());
+
+      /*
+        |--------------------------------------------------------------------------
+        | SAVE LOCALLY SO THE SAME RIDE DOES NOT KEEP ASKING
+        |--------------------------------------------------------------------------
+        */
+
+      try {
+        const existing = JSON.parse(
+          window.localStorage.getItem("gontobbo_rated_ride_ids") || "[]",
+        );
+
+        const ids = Array.isArray(existing) ? existing : [];
+
+        if (!ids.includes(String(rideId))) {
+          ids.push(String(rideId));
+        }
+
+        window.localStorage.setItem(
+          "gontobbo_rated_ride_ids",
+          JSON.stringify(ids.slice(-100)),
+        );
+      } catch (storageError) {
+        console.error("Rating storage save error:", storageError);
+      }
+
+      setRideHistory((current) =>
+        current.map((ride) =>
+          String(ride?._id || ride?.id) === String(rideId)
+            ? {
+                ...ride,
+                rating: selectedRating,
+                ratingComment: ratingComment.trim(),
+              }
+            : ride,
+        ),
+      );
+
+      setRatingMessage("Thank you! Your rating has been submitted.");
+
+      window.setTimeout(() => {
+        setRatingRide(null);
+
+        setSelectedRating(0);
+
+        setRatingComment("");
+
+        setRatingMessage("");
+      }, 1200);
+    } catch (error) {
+      console.error("Rate ride error:", error);
+
+      setRatingMessage(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to submit your rating. Please try again.",
+      );
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
+  /*
+  |--------------------------------------------------------------------------
   | REFRESH
   |--------------------------------------------------------------------------
   */
@@ -618,7 +768,7 @@ export default function PassengerDashboard() {
       {sidebarOpen && (
         <button
           type="button"
-          aria-label="Close sidebar"
+          aria-label="Close menu"
           onClick={() => setSidebarOpen(false)}
           className="fixed inset-0 z-[1050] bg-slate-950/40 lg:hidden"
         />
@@ -627,95 +777,108 @@ export default function PassengerDashboard() {
       {/* SIDEBAR */}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-[1100] w-72 transform border-r border-slate-200 bg-white transition-transform duration-300 ${
+        className={`fixed inset-y-0 left-0 z-[1100] flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="flex h-full flex-col">
-          <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
-                <Navigation size={20} />
-              </div>
-
-              <div>
-                <p className="text-lg font-bold">Gontobbo</p>
-
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Passenger
-                </p>
-              </div>
+        <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <Navigation size={20} />
             </div>
 
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"
-            >
-              <X size={18} />
-            </button>
+            <div>
+              <p className="font-bold">Gontobbo</p>
+
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Passenger
+              </p>
+            </div>
           </div>
 
-          <nav className="flex-1 space-y-1 p-4">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 lg:hidden"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="flex-1 p-4">
+          <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Main menu
+          </p>
+
+          <div className="mt-3 space-y-1">
             <SidebarItem icon={Navigation} label="Dashboard" active />
 
             <SidebarItem icon={Car} label="My Rides" />
 
+            <SidebarItem icon={Clock3} label="Ride History" />
+
             <SidebarItem icon={Star} label="Ratings" />
+          </div>
 
-            <SidebarItem icon={ShieldCheck} label="Safety" />
-          </nav>
+          <p className="mt-8 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Account
+          </p>
 
-          <div className="border-t border-slate-100 p-4">
-            <div className="mb-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">
-                {getInitials(user?.name)}
-              </div>
+          <div className="mt-3 space-y-1">
+            <SidebarItem icon={ShieldCheck} label="Account" />
 
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold">
-                  {user?.name || "Passenger"}
-                </p>
+            <SidebarItem icon={User} label="Profile" />
+          </div>
+        </nav>
 
-                <p className="truncate text-xs text-slate-400">{user?.email}</p>
-              </div>
+        <div className="border-t border-slate-100 p-4">
+          <div className="mb-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white">
+              {getInitials(user?.name)}
             </div>
 
-            <button
-              type="button"
-              onClick={logout}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
-            >
-              <XCircle size={16} />
-              Sign out
-            </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">
+                {user?.name || "Passenger"}
+              </p>
+
+              <p className="truncate text-xs text-slate-400">{user?.email}</p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={logout}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+          >
+            <XCircle size={16} />
+            Sign out
+          </button>
         </div>
       </aside>
 
       {/* MAIN */}
 
       <main className="relative z-0 lg:pl-72">
-        {/* HEADER
-            IMPORTANT:
-            Higher z-index than map
-        */}
+        {/* NAVBAR */}
 
         <header className="sticky top-0 z-[1000] flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-xl p-2 hover:bg-slate-100 lg:hidden"
-          >
-            <Menu size={22} />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-xl p-2 hover:bg-slate-100 lg:hidden"
+            >
+              <Menu size={22} />
+            </button>
 
-          <div className="hidden lg:block">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              Passenger portal
-            </p>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Passenger portal
+              </p>
 
-            <h1 className="text-lg font-bold">Dashboard</h1>
+              <h1 className="text-lg font-bold">Passenger Dashboard</h1>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -734,7 +897,7 @@ export default function PassengerDashboard() {
             </button>
 
             <div className="hidden text-right sm:block">
-              <p className="text-xs text-slate-400">Welcome back</p>
+              <p className="text-xs text-slate-400">Welcome</p>
 
               <p className="text-sm font-bold">{user?.name}</p>
             </div>
@@ -746,6 +909,8 @@ export default function PassengerDashboard() {
         </header>
 
         <div className="relative z-0 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {/* TITLE */}
+
           <section className="mb-8">
             <p className="text-sm font-medium text-slate-400">
               Good to see you,
@@ -814,6 +979,8 @@ export default function PassengerDashboard() {
                 </div>
               </div>
 
+              {/* DRIVER */}
+
               {driverAccepted && (
                 <div className="border-b border-slate-100 p-6 sm:p-8">
                   <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5">
@@ -880,6 +1047,8 @@ export default function PassengerDashboard() {
                 </div>
               )}
 
+              {/* SEARCHING */}
+
               {!driverAccepted &&
                 ["requested", "searching"].includes(activeRide.status) && (
                   <div className="border-b border-slate-100 p-6 sm:p-8">
@@ -910,6 +1079,8 @@ export default function PassengerDashboard() {
                     </div>
                   </div>
                 )}
+
+              {/* RIDE INFORMATION */}
 
               <div className="p-6 sm:p-8">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -999,7 +1170,9 @@ export default function PassengerDashboard() {
                       value={pickupText}
                       onChange={(event) => {
                         setPickup(null);
+
                         setPickupText(event.target.value);
+
                         setRoute(null);
                       }}
                       placeholder="Enter pickup location"
@@ -1008,7 +1181,7 @@ export default function PassengerDashboard() {
 
                     {pickupSearching && <SearchLoading />}
 
-                    {pickup && (
+                    {pickupText && !pickup && !pickupSearching && (
                       <button
                         type="button"
                         onClick={clearPickup}
@@ -1019,7 +1192,7 @@ export default function PassengerDashboard() {
                     )}
                   </div>
 
-                  {!pickup && pickupResults.length > 0 && (
+                  {pickupResults.length > 0 && (
                     <LocationResults
                       results={pickupResults}
                       onSelect={selectPickup}
@@ -1029,14 +1202,14 @@ export default function PassengerDashboard() {
 
                 {/* DESTINATION */}
 
-                <div className="relative z-40 mb-6">
+                <div className="relative z-40 mb-5">
                   <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
                     Destination
                   </label>
 
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-red-500/10">
-                      <MapPin size={15} className="text-red-400" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
                     </div>
 
                     <input
@@ -1044,28 +1217,28 @@ export default function PassengerDashboard() {
                       onChange={(event) => {
                         setDestination(null);
 
-                        setDestinationText(event.target.value);
-
                         setRoute(null);
                       }}
-                      placeholder="Where are you going?"
+                      placeholder="Enter destination"
                       className="w-full rounded-2xl border border-slate-800 bg-slate-900 py-4 pl-14 pr-12 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 focus:border-slate-600"
                     />
 
                     {destinationSearching && <SearchLoading />}
 
-                    {destination && (
-                      <button
-                        type="button"
-                        onClick={clearDestination}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
+                    {destinationText &&
+                      !destination &&
+                      !destinationSearching && (
+                        <button
+                          type="button"
+                          onClick={clearDestination}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
                   </div>
 
-                  {!destination && destinationResults.length > 0 && (
+                  {destinationResults.length > 0 && (
                     <LocationResults
                       results={destinationResults}
                       onSelect={selectDestination}
@@ -1073,21 +1246,12 @@ export default function PassengerDashboard() {
                   )}
                 </div>
 
-                {/* VEHICLE */}
+                {/* VEHICLES */}
 
                 <div className="mb-6">
-                  <div className="mb-3 flex items-center justify-between">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Choose your vehicle
-                    </label>
-
-                    <span className="text-xs font-semibold text-slate-500">
-                      Selected:{" "}
-                      <span className="text-white">
-                        {formatVehicleType(vehicleType)}
-                      </span>
-                    </span>
-                  </div>
+                  <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Choose vehicle
+                  </label>
 
                   <div className="grid grid-cols-3 gap-3">
                     <VehicleOption
@@ -1174,10 +1338,7 @@ export default function PassengerDashboard() {
                 </button>
               </div>
 
-              {/* MAP
-                  IMPORTANT:
-                  z-0 keeps map below navbar
-              */}
+              {/* MAP */}
 
               <div className="relative z-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <MapView
@@ -1242,13 +1403,33 @@ export default function PassengerDashboard() {
             ) : (
               <div className="space-y-3">
                 {rideHistory.slice(0, 10).map((ride) => (
-                  <RecentRide key={ride.id || ride._id} ride={ride} />
+                  <RecentRide
+                    key={ride.id || ride._id}
+                    ride={ride}
+                    onRate={openRating}
+                  />
                 ))}
               </div>
             )}
           </section>
         </div>
       </main>
+
+      {/* RATING MODAL */}
+
+      {ratingRide && (
+        <RatingModal
+          ride={ratingRide}
+          selectedRating={selectedRating}
+          setSelectedRating={setSelectedRating}
+          ratingComment={ratingComment}
+          setRatingComment={setRatingComment}
+          ratingLoading={ratingLoading}
+          ratingMessage={ratingMessage}
+          onClose={closeRating}
+          onSubmit={handleSubmitRating}
+        />
+      )}
     </div>
   );
 }
@@ -1417,7 +1598,7 @@ function StatCard({ icon: Icon, label, value }) {
   );
 }
 
-function RecentRide({ ride }) {
+function RecentRide({ ride, onRate }) {
   const statusClass =
     ride.status === "completed"
       ? "bg-emerald-50 text-emerald-700"
@@ -1480,12 +1661,180 @@ function RecentRide({ ride }) {
           </span>
 
           <p className="mt-3 text-lg font-bold text-slate-950">
-            ৳{Number(ride.estimatedFare || 0).toFixed(0)}
+            ৳
+            {Number(
+              ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0,
+            ).toFixed(0)}
           </p>
 
           <p className="text-xs text-slate-400">
             {safeDistance(ride.distanceKm)}
           </p>
+
+          {ride.status === "completed" && !ride.rating && (
+            <button
+              type="button"
+              onClick={() => onRate?.(ride)}
+              className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-300"
+            >
+              <Star size={14} className="fill-current" />
+              Rate Driver
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| RATING MODAL
+|--------------------------------------------------------------------------
+*/
+
+function RatingModal({
+  ride,
+  selectedRating,
+  setSelectedRating,
+  ratingComment,
+  setRatingComment,
+  ratingLoading,
+  ratingMessage,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="border-b border-slate-100 px-6 py-5 sm:px-7">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Ride completed
+              </p>
+
+              <h3 className="mt-1 text-2xl font-bold text-slate-950">
+                Rate your driver
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={ratingLoading}
+              className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-40"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-7">
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white">
+                {getInitials(ride?.driver?.name || "Driver")}
+              </div>
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Driver
+                </p>
+
+                <p className="mt-1 text-sm font-bold text-slate-900">
+                  {ride?.driver?.name || "Your driver"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-7 text-center">
+            <p className="text-sm font-semibold text-slate-600">
+              How was your ride?
+            </p>
+
+            <div
+              className="mt-4 flex justify-center gap-2"
+              role="radiogroup"
+              aria-label="Driver rating"
+            >
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setSelectedRating(star)}
+                  disabled={ratingLoading}
+                  aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                  aria-pressed={selectedRating === star}
+                  className="rounded-xl p-1 transition hover:scale-110 disabled:opacity-50"
+                >
+                  <Star
+                    size={36}
+                    className={
+                      star <= selectedRating
+                        ? "fill-amber-400 text-amber-400"
+                        : "text-slate-300"
+                    }
+                  />
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-2 text-xs font-bold text-slate-400">
+              {selectedRating === 0
+                ? "Select a rating"
+                : `${selectedRating} out of 5 stars`}
+            </p>
+          </div>
+
+          <div className="mt-6">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+              Comment{" "}
+              <span className="font-normal normal-case">(optional)</span>
+            </label>
+
+            <textarea
+              value={ratingComment}
+              onChange={(event) =>
+                setRatingComment(event.target.value.slice(0, 500))
+              }
+              disabled={ratingLoading}
+              rows={4}
+              placeholder="Tell us about your ride..."
+              className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-400 focus:bg-white disabled:opacity-50"
+            />
+
+            <p className="mt-1 text-right text-[10px] text-slate-400">
+              {ratingComment.length}
+              /500
+            </p>
+          </div>
+
+          {ratingMessage && (
+            <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+              {ratingMessage}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={ratingLoading || selectedRating === 0}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 py-4 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {ratingLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Star size={18} className="fill-amber-400 text-amber-400" />
+                Submit Rating
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
@@ -1503,6 +1852,7 @@ function SidebarItem({ icon: Icon, label, active = false }) {
       }`}
     >
       <Icon size={18} />
+
       {label}
     </button>
   );
@@ -1590,11 +1940,17 @@ function formatStatus(status) {
 function getRideStatusLabel(status) {
   const labels = {
     requested: "Ride Requested",
+
     searching: "Finding Driver",
+
     accepted: "Driver Accepted",
+
     driver_arriving: "Driver Arriving",
+
     in_progress: "Ride In Progress",
+
     completed: "Ride Completed",
+
     cancelled: "Ride Cancelled",
   };
 
@@ -1604,11 +1960,17 @@ function getRideStatusLabel(status) {
 function getRideStatusDescription(status) {
   const descriptions = {
     requested: "Your ride request has been sent.",
+
     searching: "We're looking for an available driver.",
+
     accepted: "Your driver has accepted the ride.",
+
     driver_arriving: "Your driver is coming to the pickup location.",
+
     in_progress: "You are currently on your way.",
+
     completed: "You have reached your destination.",
+
     cancelled: "This ride has been cancelled.",
   };
 
