@@ -7,7 +7,7 @@ import axios from "axios";
 */
 
 const api = axios.create({
-  baseURL: "http://localhost:8009/api",
+  baseURL: "https://gontobbo-api.onrender.com/api",
 
   headers: {
     "Content-Type": "application/json",
@@ -48,22 +48,11 @@ api.interceptors.request.use(
 | RESPONSE INTERCEPTOR
 |--------------------------------------------------------------------------
 |
-| IMPORTANT:
-|
 | 401 = authentication/token problem.
 |
 | 403 = authenticated but forbidden.
 |
 | We MUST NOT automatically logout on 403.
-|
-| A driver can receive 403 because:
-|
-| - driver is not approved
-| - account is deactivated
-| - driver permission is missing
-|
-| Automatically deleting the token here makes debugging
-| and dashboard behaviour much worse.
 |
 |--------------------------------------------------------------------------
 */
@@ -78,7 +67,6 @@ api.interceptors.response.use(
 
     if (status === 401) {
       localStorage.removeItem("gontobbo_token");
-
       localStorage.removeItem("gontobbo_user");
     }
 
