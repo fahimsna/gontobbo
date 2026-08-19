@@ -677,20 +677,20 @@ export default function DriverDashboard() {
           type="button"
           aria-label="Close menu"
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-[1050] bg-slate-950/55 backdrop-blur-[3px] lg:hidden"
+          className="fixed inset-0 z-1050 bg-slate-950/55 backdrop-blur-[3px] lg:hidden"
         />
       )}
 
       {/* SIDEBAR */}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-[1100] flex w-[272px] flex-col border-r border-slate-200/80 bg-white transition-transform duration-300 ${
+        className={`fixed inset-y-0 left-0 z-1100 flex w-68 flex-col border-r border-slate-200/80 bg-white transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         {/* BRAND */}
 
-        <div className="flex h-[78px] items-center justify-between border-b border-slate-100 px-6">
+        <div className="flex h-19.5 items-center justify-between border-b border-slate-100 px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm">
               <Navigation size={18} strokeWidth={2.5} />
@@ -811,10 +811,10 @@ export default function DriverDashboard() {
 
       {/* MAIN */}
 
-      <main className="lg:pl-[272px]">
+      <main className="lg:pl-68">
         {/* HEADER */}
 
-        <header className="sticky top-0 z-[1000] flex h-[78px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-1000 flex h-19.5 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -884,7 +884,7 @@ export default function DriverDashboard() {
 
         <div
           id="dashboard"
-          className="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+          className="mx-auto max-w-345 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
         >
           {/* HERO */}
 
@@ -1030,7 +1030,7 @@ export default function DriverDashboard() {
                   type="button"
                   onClick={handleOnlineToggle}
                   disabled={statusUpdating}
-                  className={`flex min-h-[52px] min-w-[185px] items-center justify-center gap-2.5 rounded-2xl px-6 py-3.5 text-sm font-black shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`flex min-h-13 min-w-46.25 items-center justify-center gap-2.5 rounded-2xl px-6 py-3.5 text-sm font-black shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                     online
                       ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
                       : "bg-emerald-500 text-white hover:bg-emerald-400"
@@ -1148,7 +1148,7 @@ export default function DriverDashboard() {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 sm:min-w-[180px] lg:block lg:text-right">
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 px-5 py-4 sm:min-w-45 lg:block lg:text-right">
                     <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
                       Current fare
                     </p>
@@ -1252,7 +1252,7 @@ export default function DriverDashboard() {
                   />
                 </div>
 
-                <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100">
+                <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
                   <MapView
                     pickup={activeRide.pickup}
                     destination={activeRide.destination}
@@ -1422,7 +1422,7 @@ export default function DriverDashboard() {
               </div>
 
               <div className="mt-7 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-white/[0.06] p-4">
+                <div className="rounded-2xl bg-white/6 p-4">
                   <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
                     Today
                   </p>
@@ -1432,7 +1432,7 @@ export default function DriverDashboard() {
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/[0.06] p-4">
+                <div className="rounded-2xl bg-white/6 p-4">
                   <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
                     Trips
                   </p>
@@ -1576,7 +1576,7 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
   const busy = actionRideId === rideId;
 
   return (
-    <div className="group rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-[1px] hover:border-slate-300 hover:shadow-md sm:p-5">
+    <div className="group rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-px hover:border-slate-300 hover:shadow-md sm:p-5">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
         <div className="min-w-0 flex-1">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -1646,7 +1646,7 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-2 lg:w-[170px] lg:flex-col">
+        <div className="flex shrink-0 gap-2 lg:w-42.5 lg:flex-col">
           <button
             type="button"
             onClick={() => onAccept(ride)}
@@ -1856,7 +1856,7 @@ function StatCard({ icon: Icon, label, value, accent = "slate" }) {
   };
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-[1px] hover:shadow-md">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-px hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400">
