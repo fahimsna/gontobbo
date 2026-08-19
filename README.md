@@ -717,5 +717,5 @@ This project was developed for educational and portfolio purposes.
 ---
 
 <p align="center">
-  Built with ❤️ using the MERN Stack
+  This Project Is Built using the MERN Stack
 </p>
