@@ -19,8 +19,6 @@ const PORT = process.env.PORT || 8009;
 // Middleware
 // ==========================================
 
-import cors from "cors";
-
 app.use(
   cors({
     origin: ["http://localhost:5173", "https://gontobbo-chi.vercel.app"],
@@ -83,7 +81,6 @@ app.use((err, req, res, next) => {
 
   res.status(err.status || 500).json({
     success: false,
-
     message: err.message || "Internal server error",
 
     ...(process.env.NODE_ENV === "development" && {
