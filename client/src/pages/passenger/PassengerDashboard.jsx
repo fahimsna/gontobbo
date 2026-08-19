@@ -17,6 +17,10 @@ import {
   Wifi,
   X,
   XCircle,
+  ArrowRight,
+  ChevronRight,
+  LocateFixed,
+  Sparkles,
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
@@ -48,17 +52,10 @@ export default function PassengerDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [pickupText, setPickupText] = useState("");
-
   const [destinationText, setDestinationText] = useState("");
 
   const [pickup, setPickup] = useState(null);
   const [destination, setDestination] = useState(null);
-
-  /*
-  |--------------------------------------------------------------------------
-  | VEHICLE TYPE
-  |--------------------------------------------------------------------------
-  */
 
   const [vehicleType, setVehicleType] = useState("car");
 
@@ -81,12 +78,6 @@ export default function PassengerDashboard() {
   const [rideLoading, setRideLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  /*
-  |--------------------------------------------------------------------------
-  | DRIVER RATING
-  |--------------------------------------------------------------------------
-  */
 
   const [ratingRide, setRatingRide] = useState(null);
   const [selectedRating, setSelectedRating] = useState(0);
@@ -328,12 +319,6 @@ export default function PassengerDashboard() {
 
       setRideHistory(validRides);
 
-      /*
-        |--------------------------------------------------------------------------
-        | FIND AN UNRATED COMPLETED RIDE
-        |--------------------------------------------------------------------------
-        */
-
       try {
         const ratedIds = JSON.parse(
           window.localStorage.getItem("gontobbo_rated_ride_ids") || "[]",
@@ -393,15 +378,13 @@ export default function PassengerDashboard() {
 
   /*
   |--------------------------------------------------------------------------
-  | LOCATION SELECTION
+  | LOCATION
   |--------------------------------------------------------------------------
   */
 
   const selectPickup = (location) => {
     setPickup(location);
-
     setPickupText(location.name || location.displayName || "");
-
     setPickupResults([]);
     setRoute(null);
     setRouteError("");
@@ -409,9 +392,7 @@ export default function PassengerDashboard() {
 
   const selectDestination = (location) => {
     setDestination(location);
-
     setDestinationText(location.name || location.displayName || "");
-
     setDestinationResults([]);
     setRoute(null);
     setRouteError("");
@@ -457,7 +438,6 @@ export default function PassengerDashboard() {
       return Math.round(baseFare * (multipliers[vehicleType] || 1));
     } catch (error) {
       console.error("Fare calculation error:", error);
-
       return 0;
     }
   }, [route, vehicleType]);
@@ -500,20 +480,14 @@ export default function PassengerDashboard() {
 
       const payload = {
         pickup: buildRideLocation(pickup),
-
         destination: buildRideLocation(destination),
-
         distanceKm: Number(route.distanceKm.toFixed(2)),
-
         durationMinutes: Number(route.durationMinutes.toFixed(1)),
-
         estimatedFare: fare,
-
-        vehicleType: vehicleType,
+        vehicleType,
       };
 
       console.log("Creating ride with vehicle type:", vehicleType);
-
       console.log("CREATE RIDE PAYLOAD:", payload);
 
       const response = await createRide(payload);
@@ -608,11 +582,8 @@ export default function PassengerDashboard() {
     }
 
     setRatingRide(ride);
-
     setSelectedRating(0);
-
     setRatingComment("");
-
     setRatingMessage("");
   };
 
@@ -622,11 +593,8 @@ export default function PassengerDashboard() {
     }
 
     setRatingRide(null);
-
     setSelectedRating(0);
-
     setRatingComment("");
-
     setRatingMessage("");
   };
 
@@ -645,16 +613,9 @@ export default function PassengerDashboard() {
 
     try {
       setRatingLoading(true);
-
       setRatingMessage("");
 
       await rateRide(rideId, selectedRating, ratingComment.trim());
-
-      /*
-      |--------------------------------------------------------------------------
-      | SAVE LOCALLY SO THE SAME RIDE DOES NOT KEEP ASKING
-      |--------------------------------------------------------------------------
-      */
 
       try {
         const existing = JSON.parse(
@@ -680,9 +641,7 @@ export default function PassengerDashboard() {
           String(ride?._id || ride?.id) === String(rideId)
             ? {
                 ...ride,
-
                 rating: selectedRating,
-
                 ratingComment: ratingComment.trim(),
               }
             : ride,
@@ -693,11 +652,8 @@ export default function PassengerDashboard() {
 
       window.setTimeout(() => {
         setRatingRide(null);
-
         setSelectedRating(0);
-
         setRatingComment("");
-
         setRatingMessage("");
       }, 1200);
     } catch (error) {
@@ -752,7 +708,6 @@ export default function PassengerDashboard() {
     }
 
     const date = new Date(ride.createdAt);
-
     const now = new Date();
 
     return (
@@ -761,6 +716,21 @@ export default function PassengerDashboard() {
     );
   }).length;
 
+  const averageRating = useMemo(() => {
+    const ratings = completedRides
+      .map((ride) => Number(ride.rating))
+      .filter((rating) => rating >= 1 && rating <= 5);
+
+    if (!ratings.length) {
+      return "—";
+    }
+
+    const average =
+      ratings.reduce((total, rating) => total + rating, 0) / ratings.length;
+
+    return average.toFixed(1);
+  }, [completedRides]);
+
   /*
   |--------------------------------------------------------------------------
   | RENDER
@@ -768,35 +738,35 @@ export default function PassengerDashboard() {
   */
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
-      {/* MOBILE BACKDROP */}
+    <div className="min-h-screen bg-[#f5f7fa] text-slate-950">
+      {/* MOBILE OVERLAY */}
 
       {sidebarOpen && (
         <button
           type="button"
-          aria-label="Close menu"
+          aria-label="Close sidebar"
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-[1050] bg-slate-950/40 lg:hidden"
+          className="fixed inset-0 z-[1050] bg-slate-950/50 backdrop-blur-sm lg:hidden"
         />
       )}
 
       {/* SIDEBAR */}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-[1100] flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-300 ${
+        className={`fixed inset-y-0 left-0 z-[1100] flex w-[280px] flex-col border-r border-slate-200/80 bg-white transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
+        <div className="flex h-[78px] items-center border-b border-slate-100 px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
-              <Navigation size={20} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-lg shadow-slate-950/10">
+              <Navigation size={19} strokeWidth={2.5} />
             </div>
 
             <div>
-              <p className="font-bold">Gontobbo</p>
+              <p className="text-[17px] font-black tracking-tight">Gontobbo</p>
 
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.22em] text-slate-400">
                 Passenger
               </p>
             </div>
@@ -805,15 +775,15 @@ export default function PassengerDashboard() {
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 lg:hidden"
+            className="ml-auto rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden"
           >
-            <X size={20} />
+            <X size={19} />
           </button>
         </div>
 
-        <nav className="flex-1 p-4">
-          <p className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-            Main menu
+        <nav className="flex-1 overflow-y-auto px-4 py-7">
+          <p className="px-3 text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+            Overview
           </p>
 
           <div className="mt-3 space-y-1">
@@ -826,7 +796,7 @@ export default function PassengerDashboard() {
             <SidebarItem icon={Star} label="Ratings" />
           </div>
 
-          <p className="mt-8 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+          <p className="mt-9 px-3 text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
             Account
           </p>
 
@@ -834,6 +804,18 @@ export default function PassengerDashboard() {
             <SidebarItem icon={ShieldCheck} label="Account" />
 
             <SidebarItem icon={User} label="Profile" />
+          </div>
+
+          <div className="mt-10 rounded-2xl bg-slate-950 p-4 text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10">
+              <ShieldCheck size={17} />
+            </div>
+
+            <p className="mt-4 text-sm font-bold">Safe rides, every time.</p>
+
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              Your ride information is protected by Gontobbo.
+            </p>
           </div>
         </nav>
 
@@ -848,16 +830,18 @@ export default function PassengerDashboard() {
                 {user?.name || "Passenger"}
               </p>
 
-              <p className="truncate text-xs text-slate-400">{user?.email}</p>
+              <p className="truncate text-[11px] text-slate-400">
+                {user?.email}
+              </p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={logout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-500 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
           >
-            <XCircle size={16} />
+            <XCircle size={15} />
             Sign out
           </button>
         </div>
@@ -865,34 +849,36 @@ export default function PassengerDashboard() {
 
       {/* MAIN */}
 
-      <main className="relative z-0 lg:pl-72">
-        {/* NAVBAR */}
+      <main className="relative z-0 lg:pl-[280px]">
+        {/* HEADER */}
 
-        <header className="sticky top-0 z-[1000] flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-[1000] flex h-[78px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="rounded-xl p-2 hover:bg-slate-100 lg:hidden"
+              className="rounded-xl p-2.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 lg:hidden"
             >
-              <Menu size={22} />
+              <Menu size={21} />
             </button>
 
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
                 Passenger portal
               </p>
 
-              <h1 className="text-lg font-bold">Passenger Dashboard</h1>
+              <h1 className="mt-0.5 text-base font-black tracking-tight sm:text-lg">
+                Dashboard
+              </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+              className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-950 disabled:opacity-50"
             >
               <RefreshCw
                 size={14}
@@ -902,44 +888,77 @@ export default function PassengerDashboard() {
               <span className="hidden sm:inline">Refresh</span>
             </button>
 
-            <div className="hidden text-right sm:block">
-              <p className="text-xs text-slate-400">Welcome</p>
+            <div className="hidden border-l border-slate-200 pl-4 text-right sm:block">
+              <p className="text-[10px] font-medium text-slate-400">
+                Welcome back
+              </p>
 
-              <p className="text-sm font-bold">{user?.name}</p>
+              <p className="text-sm font-bold text-slate-900">
+                {user?.name || "Passenger"}
+              </p>
             </div>
 
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-xs font-bold text-white ring-4 ring-slate-100">
               {getInitials(user?.name)}
             </div>
           </div>
         </header>
 
-        <div className="relative z-0 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {/* TITLE */}
+        <div className="mx-auto max-w-[1400px] px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
+          {/* HERO */}
 
           <section className="mb-8">
-            <p className="text-sm font-medium text-slate-400">
-              Good to see you,
-            </p>
+            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
 
-            <h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-              Where are you going,
-              <span className="text-slate-400">
-                {" "}
-                {user?.name?.split(" ")[0] || "today"}?
-              </span>
-            </h2>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Gontobbo is ready
+                  </span>
+                </div>
+
+                <h2 className="max-w-2xl text-3xl font-black tracking-[-0.035em] text-slate-950 sm:text-4xl lg:text-[42px]">
+                  Where are you going,
+                  <span className="text-slate-400">
+                    {" "}
+                    {user?.name?.split(" ")[0] || "today"}?
+                  </span>
+                </h2>
+
+                <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">
+                  Book a reliable ride, track your driver and get where you need
+                  to be without the hassle.
+                </p>
+              </div>
+
+              <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <Sparkles size={15} />
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Available now
+                  </p>
+
+                  <p className="text-xs font-bold text-slate-800">
+                    Drivers are online
+                  </p>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* ACTIVE RIDE */}
 
           {!activeRideLoading && activeRide && (
-            <section className="relative z-0 mb-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <section className="relative z-0 mb-8 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
               <div
-                className={`border-b px-6 py-6 sm:px-8 ${
+                className={`border-b px-5 py-5 sm:px-7 ${
                   driverAccepted
-                    ? "border-emerald-100 bg-emerald-50/70"
-                    : "border-slate-100 bg-slate-50"
+                    ? "border-emerald-100 bg-gradient-to-r from-emerald-50 to-white"
+                    : "border-amber-100 bg-gradient-to-r from-amber-50 to-white"
                 }`}
               >
                 <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
@@ -953,12 +972,12 @@ export default function PassengerDashboard() {
                         }`}
                       />
 
-                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
                         Current ride
                       </p>
                     </div>
 
-                    <h3 className="mt-2 text-2xl font-bold">
+                    <h3 className="mt-2 text-xl font-black tracking-tight sm:text-2xl">
                       {getRideStatusLabel(activeRide.status)}
                     </h3>
 
@@ -972,49 +991,53 @@ export default function PassengerDashboard() {
                       type="button"
                       onClick={handleCancelRide}
                       disabled={cancelLoading}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 text-xs font-bold text-red-600 shadow-sm transition hover:bg-red-50 disabled:opacity-50"
                     >
                       {cancelLoading ? (
-                        <Loader2 size={16} className="animate-spin" />
+                        <Loader2 size={15} className="animate-spin" />
                       ) : (
-                        <X size={16} />
+                        <X size={15} />
                       )}
-                      Cancel Ride
+                      Cancel ride
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* DRIVER */}
-
               {driverAccepted && (
-                <div className="border-b border-slate-100 p-6 sm:p-8">
-                  <div className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5">
+                <div className="border-b border-slate-100 p-5 sm:p-7">
+                  <div className="rounded-[24px] border border-emerald-100 bg-gradient-to-br from-emerald-50/80 via-white to-white p-5">
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-lg font-bold text-white">
-                          {getInitials(activeRide.driver?.name)}
+                        <div className="relative">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-950 text-lg font-black text-white shadow-lg">
+                            {getInitials(activeRide.driver?.name)}
+                          </div>
+
+                          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-emerald-500">
+                            <CheckCircle2 size={11} className="text-white" />
+                          </span>
                         </div>
 
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-lg font-bold">
+                            <h4 className="text-lg font-black">
                               {activeRide.driver?.name || "Your driver"}
                             </h4>
 
                             <CheckCircle2
-                              size={17}
+                              size={16}
                               className="text-emerald-500"
                             />
                           </div>
 
-                          <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+                          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                             <Star
-                              size={14}
+                              size={13}
                               className="fill-amber-400 text-amber-400"
                             />
 
-                            <span>Driver assigned</span>
+                            <span>Verified Gontobbo driver</span>
                           </div>
                         </div>
                       </div>
@@ -1022,9 +1045,9 @@ export default function PassengerDashboard() {
                       {activeRide.driver?.phone && (
                         <a
                           href={`tel:${activeRide.driver.phone}`}
-                          className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-400"
+                          className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400"
                         >
-                          <Phone size={17} />
+                          <Phone size={15} />
                           Call driver
                         </a>
                       )}
@@ -1038,58 +1061,54 @@ export default function PassengerDashboard() {
                       />
 
                       <DriverInfo
-                        icon={<Navigation size={16} />}
-                        label="Status"
+                        icon={<Navigation size={15} />}
+                        label="Trip status"
                         value={getDriverStatus(activeRide.status)}
                       />
 
                       <DriverInfo
-                        icon={<Wifi size={16} />}
+                        icon={<Wifi size={15} />}
                         label="Connection"
-                        value="Connected"
+                        value="Live"
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* SEARCHING */}
-
               {!driverAccepted &&
                 ["requested", "searching"].includes(activeRide.status) && (
-                  <div className="border-b border-slate-100 p-6 sm:p-8">
-                    <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6">
+                  <div className="border-b border-slate-100 p-5 sm:p-7">
+                    <div className="rounded-[24px] border border-amber-100 bg-amber-50/80 p-5">
                       <div className="flex items-center gap-4">
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
                           <Loader2
-                            size={25}
+                            size={23}
                             className="animate-spin text-amber-600"
                           />
                         </div>
 
                         <div>
-                          <h4 className="font-bold text-slate-900">
+                          <h4 className="font-black text-slate-900">
                             Finding your driver
                           </h4>
 
-                          <p className="mt-1 text-sm leading-6 text-slate-500">
-                            Nearby approved drivers are being checked for your
+                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                            We're checking nearby approved drivers for your
                             ride.
                           </p>
                         </div>
                       </div>
 
-                      <div className="mt-5 h-2 overflow-hidden rounded-full bg-amber-100">
+                      <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-amber-100">
                         <div className="h-full w-1/2 animate-pulse rounded-full bg-amber-400" />
                       </div>
                     </div>
                   </div>
                 )}
 
-              {/* RIDE INFORMATION */}
-
-              <div className="p-6 sm:p-8">
-                <div className="grid gap-4 md:grid-cols-2">
+              <div className="p-5 sm:p-7">
+                <div className="grid gap-3 md:grid-cols-2">
                   <LocationCard
                     label="Pickup"
                     value={activeRide.pickup?.address || "Pickup location"}
@@ -1103,7 +1122,7 @@ export default function PassengerDashboard() {
                   />
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <RideInfo
                     label="Distance"
                     value={safeDistance(activeRide.distanceKm)}
@@ -1128,7 +1147,7 @@ export default function PassengerDashboard() {
                 </div>
 
                 {activeRide.status === "in_progress" && (
-                  <div className="relative z-0 mt-6 overflow-hidden rounded-3xl">
+                  <div className="relative z-0 mt-5 overflow-hidden rounded-[24px] border border-slate-200">
                     <MapView
                       pickup={activeRide.pickup}
                       destination={activeRide.destination}
@@ -1145,210 +1164,264 @@ export default function PassengerDashboard() {
             </section>
           )}
 
-          {/* BOOK RIDE */}
+          {/* BOOKING */}
 
           {!activeRide && (
-            <section className="relative z-0 mb-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="rounded-3xl bg-slate-950 p-6 text-white shadow-xl sm:p-8">
-                <div className="mb-7">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                    Book a ride
-                  </p>
+            <section className="relative z-0 mb-9 grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+              {/* BOOKING PANEL */}
 
-                  <h3 className="mt-2 text-2xl font-bold">
-                    Tell us where you want to go.
-                  </h3>
-                </div>
+              <div className="relative overflow-visible rounded-[28px] bg-slate-950 p-5 text-white shadow-[0_20px_50px_rgba(15,23,42,0.15)] sm:p-7 lg:p-8">
+                <div className="pointer-events-none absolute right-0 top-0 h-56 w-56 rounded-full bg-white/[0.025] blur-3xl" />
 
-                {/* PICKUP */}
+                <div className="relative">
+                  <div className="mb-7">
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                      <Navigation size={11} className="text-emerald-400" />
 
-                <div className="relative z-50 mb-4">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Pickup
-                  </label>
-
-                  <div className="relative">
-                    <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500/10">
-                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                        Quick booking
+                      </span>
                     </div>
 
-                    <input
-                      value={pickupText}
-                      onChange={(event) => {
-                        setPickup(null);
+                    <h3 className="text-2xl font-black tracking-tight">
+                      Plan your journey.
+                    </h3>
 
-                        setPickupText(event.target.value);
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                      Enter your pickup and destination to see the route and
+                      estimated fare.
+                    </p>
+                  </div>
 
-                        setRoute(null);
-                      }}
-                      placeholder="Enter pickup location"
-                      className="w-full rounded-2xl border border-slate-800 bg-slate-900 py-4 pl-14 pr-12 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 focus:border-slate-600"
-                    />
+                  {/* PICKUP */}
 
-                    {pickupSearching && <SearchLoading />}
+                  <div className="relative z-[60] mb-4">
+                    <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
+                      Pickup location
+                    </label>
 
-                    {pickupText && !pickup && !pickupSearching && (
-                      <button
-                        type="button"
-                        onClick={clearPickup}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"
-                      >
-                        <X size={16} />
-                      </button>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-400/10">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.08)]" />
+                      </div>
+
+                      <input
+                        value={pickupText}
+                        onChange={(event) => {
+                          setPickup(null);
+                          setPickupText(event.target.value);
+                          setRoute(null);
+                        }}
+                        placeholder="Where should we pick you up?"
+                        className="w-full rounded-2xl border border-white/10 bg-white/[0.055] py-4 pl-14 pr-12 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 hover:border-white/15 focus:border-emerald-400/50 focus:bg-white/[0.07] focus:ring-4 focus:ring-emerald-400/5"
+                      />
+
+                      {pickupSearching && <SearchLoading />}
+
+                      {pickupText && !pickup && !pickupSearching && (
+                        <button
+                          type="button"
+                          onClick={clearPickup}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
+
+                    {pickupResults.length > 0 && (
+                      <LocationResults
+                        results={pickupResults}
+                        onSelect={selectPickup}
+                      />
                     )}
                   </div>
 
-                  {pickupResults.length > 0 && (
-                    <LocationResults
-                      results={pickupResults}
-                      onSelect={selectPickup}
-                    />
-                  )}
-                </div>
+                  {/* DESTINATION */}
 
-                {/* DESTINATION */}
+                  <div className="relative z-[50] mb-6">
+                    <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
+                      Destination
+                    </label>
 
-                <div className="relative z-40 mb-5">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Destination
-                  </label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-red-400/10">
+                        <span className="h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.08)]" />
+                      </div>
 
-                  <div className="relative">
-                    <div className="absolute left-4 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-red-500/10">
-                      <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+                      <input
+                        value={destinationText}
+                        onChange={(event) => {
+                          setDestination(null);
+                          setDestinationText(event.target.value);
+                          setRoute(null);
+                        }}
+                        placeholder="Where are you going?"
+                        className="w-full rounded-2xl border border-white/10 bg-white/[0.055] py-4 pl-14 pr-12 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 hover:border-white/15 focus:border-red-400/40 focus:bg-white/[0.07] focus:ring-4 focus:ring-red-400/5"
+                      />
+
+                      {destinationSearching && <SearchLoading />}
+
+                      {destinationText &&
+                        !destination &&
+                        !destinationSearching && (
+                          <button
+                            type="button"
+                            onClick={clearDestination}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 transition hover:bg-white/10 hover:text-white"
+                          >
+                            <X size={15} />
+                          </button>
+                        )}
                     </div>
 
-                    <input
-                      value={destinationText}
-                      onChange={(event) => {
-                        setDestination(null);
-
-                        setDestinationText(event.target.value);
-
-                        setRoute(null);
-                      }}
-                      placeholder="Enter destination"
-                      className="w-full rounded-2xl border border-slate-800 bg-slate-900 py-4 pl-14 pr-12 text-sm font-medium text-white outline-none transition placeholder:text-slate-600 focus:border-slate-600"
-                    />
-
-                    {destinationSearching && <SearchLoading />}
-
-                    {destinationText &&
-                      !destination &&
-                      !destinationSearching && (
-                        <button
-                          type="button"
-                          onClick={clearDestination}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
+                    {destinationResults.length > 0 && (
+                      <LocationResults
+                        results={destinationResults}
+                        onSelect={selectDestination}
+                      />
+                    )}
                   </div>
 
-                  {destinationResults.length > 0 && (
-                    <LocationResults
-                      results={destinationResults}
-                      onSelect={selectDestination}
-                    />
+                  {/* VEHICLES */}
+
+                  <div className="mb-6">
+                    <div className="mb-3 flex items-center justify-between">
+                      <label className="block text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
+                        Choose vehicle
+                      </label>
+
+                      <span className="text-[10px] font-medium text-slate-600">
+                        Select your preference
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <VehicleOption
+                        type="car"
+                        label="Car"
+                        description="Comfort"
+                        icon={<Car size={18} />}
+                        selected={vehicleType === "car"}
+                        onClick={() => setVehicleType("car")}
+                      />
+
+                      <VehicleOption
+                        type="bike"
+                        label="Bike"
+                        description="Fast"
+                        icon={<Bike size={18} />}
+                        selected={vehicleType === "bike"}
+                        onClick={() => setVehicleType("bike")}
+                      />
+
+                      <VehicleOption
+                        type="cng"
+                        label="CNG"
+                        description="Economy"
+                        icon={<Car size={18} />}
+                        selected={vehicleType === "cng"}
+                        onClick={() => setVehicleType("cng")}
+                      />
+                    </div>
+                  </div>
+
+                  {/* ROUTE LOADING */}
+
+                  {routeLoading && (
+                    <div className="mb-5 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5">
+                        <Loader2
+                          size={16}
+                          className="animate-spin text-slate-400"
+                        />
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold text-white">
+                          Calculating route
+                        </p>
+
+                        <p className="mt-0.5 text-[10px] text-slate-500">
+                          Finding the best available route...
+                        </p>
+                      </div>
+                    </div>
                   )}
-                </div>
 
-                {/* VEHICLES */}
+                  {/* ERROR */}
 
-                <div className="mb-6">
-                  <label className="mb-3 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Choose vehicle
-                  </label>
+                  {routeError && (
+                    <div className="mb-5 flex gap-3 rounded-2xl border border-red-900/50 bg-red-950/30 p-4 text-sm leading-6 text-red-300">
+                      <XCircle size={17} className="mt-0.5 shrink-0" />
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <VehicleOption
-                      type="car"
-                      label="Car"
-                      description="Comfort"
-                      icon={<Car size={19} />}
-                      selected={vehicleType === "car"}
-                      onClick={() => setVehicleType("car")}
-                    />
-
-                    <VehicleOption
-                      type="bike"
-                      label="Bike"
-                      description="Fast"
-                      icon={<Bike size={19} />}
-                      selected={vehicleType === "bike"}
-                      onClick={() => setVehicleType("bike")}
-                    />
-
-                    <VehicleOption
-                      type="cng"
-                      label="CNG"
-                      description="Economy"
-                      icon={<Car size={19} />}
-                      selected={vehicleType === "cng"}
-                      onClick={() => setVehicleType("cng")}
-                    />
-                  </div>
-                </div>
-
-                {routeLoading && (
-                  <div className="mb-5 flex items-center gap-3 rounded-2xl bg-slate-900 p-4 text-sm text-slate-400">
-                    <Loader2 size={18} className="animate-spin" />
-                    Calculating route...
-                  </div>
-                )}
-
-                {routeError && (
-                  <div className="mb-5 rounded-2xl border border-red-900/50 bg-red-950/40 p-4 text-sm leading-6 text-red-300">
-                    {routeError}
-                  </div>
-                )}
-
-                {route && (
-                  <div className="mb-5 grid grid-cols-3 gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                    <RouteStat
-                      label="Distance"
-                      value={formatDistance(route.distanceKm)}
-                    />
-
-                    <RouteStat
-                      label="Time"
-                      value={formatDuration(route.durationMinutes)}
-                    />
-
-                    <RouteStat label="Fare" value={`৳${fare}`} />
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleRequestRide}
-                  disabled={
-                    rideLoading ||
-                    routeLoading ||
-                    !route ||
-                    !pickup ||
-                    !destination
-                  }
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 text-sm font-bold text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {rideLoading ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Requesting ride...
-                    </>
-                  ) : (
-                    <>
-                      <Navigation size={18} />
-                      Request {formatVehicleType(vehicleType)}
-                    </>
+                      <span>{routeError}</span>
+                    </div>
                   )}
-                </button>
+
+                  {/* ROUTE SUMMARY */}
+
+                  {route && (
+                    <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                      <div className="grid grid-cols-3 divide-x divide-white/10">
+                        <RouteStat
+                          label="Distance"
+                          value={formatDistance(route.distanceKm)}
+                        />
+
+                        <RouteStat
+                          label="Time"
+                          value={formatDuration(route.durationMinutes)}
+                        />
+
+                        <RouteStat label="Estimated fare" value={`৳${fare}`} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* BUTTON */}
+
+                  <button
+                    type="button"
+                    onClick={handleRequestRide}
+                    disabled={
+                      rideLoading ||
+                      routeLoading ||
+                      !route ||
+                      !pickup ||
+                      !destination
+                    }
+                    className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 text-sm font-extrabold text-slate-950 shadow-xl transition hover:-translate-y-0.5 hover:bg-slate-100 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    {rideLoading ? (
+                      <>
+                        <Loader2 size={17} className="animate-spin" />
+                        Requesting ride...
+                      </>
+                    ) : (
+                      <>
+                        Request {formatVehicleType(vehicleType)}
+                        <ArrowRight
+                          size={17}
+                          className="transition-transform group-hover:translate-x-1"
+                        />
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* MAP */}
 
-              <div className="relative z-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="relative z-0 min-h-[430px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
+                <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-xl border border-white/70 bg-white/90 px-3 py-2 shadow-lg backdrop-blur">
+                  <LocateFixed size={14} className="text-slate-700" />
+
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-600">
+                    Live route preview
+                  </span>
+                </div>
+
                 <MapView
                   pickup={pickup}
                   destination={destination}
@@ -1360,52 +1433,76 @@ export default function PassengerDashboard() {
 
           {/* STATS */}
 
-          <section className="relative z-0 mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <section className="relative z-0 mb-9 grid gap-4 sm:grid-cols-3">
             <StatCard
               icon={Car}
               label="Total rides"
               value={rideHistory.length}
+              description="All ride requests"
             />
 
-            <StatCard icon={Clock3} label="This month" value={monthlyRides} />
+            <StatCard
+              icon={Clock3}
+              label="This month"
+              value={monthlyRides}
+              description="Completed rides"
+            />
 
-            <StatCard icon={Star} label="Rating" value="—" />
+            <StatCard
+              icon={Star}
+              label="Your rating"
+              value={averageRating}
+              description="Average driver rating"
+            />
           </section>
 
           {/* HISTORY */}
 
           <section className="relative z-0">
-            <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5 flex items-end justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
                   Activity
                 </p>
 
-                <h3 className="mt-1 text-2xl font-bold">Recent rides</h3>
+                <h3 className="mt-1 text-2xl font-black tracking-tight">
+                  Recent rides
+                </h3>
               </div>
+
+              {rideHistory.length > 0 && (
+                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-bold text-slate-500">
+                  {rideHistory.length} ride
+                  {rideHistory.length === 1 ? "" : "s"}
+                </span>
+              )}
             </div>
 
             {historyLoading ? (
-              <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
-                <Loader2
-                  size={24}
-                  className="mx-auto animate-spin text-slate-400"
-                />
+              <div className="rounded-[28px] border border-slate-200 bg-white p-12 text-center shadow-sm">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
+                  <Loader2 size={21} className="animate-spin text-slate-400" />
+                </div>
 
-                <p className="mt-3 text-sm text-slate-400">
-                  Loading your ride history...
+                <p className="mt-4 text-sm font-bold text-slate-700">
+                  Loading your ride history
+                </p>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  This will only take a moment.
                 </p>
               </div>
             ) : rideHistory.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+              <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
                   <Car size={22} className="text-slate-400" />
                 </div>
 
-                <h4 className="mt-4 font-bold">No rides yet</h4>
+                <h4 className="mt-5 text-base font-black">No rides yet</h4>
 
-                <p className="mt-1 text-sm text-slate-400">
-                  Your completed rides will appear here.
+                <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-slate-400">
+                  Your ride activity will appear here after you book your first
+                  trip.
                 </p>
               </div>
             ) : (
@@ -1458,16 +1555,16 @@ function VehicleIcon({ type }) {
 
 function DriverInfo({ icon, label, value }) {
   return (
-    <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+    <div className="rounded-2xl border border-emerald-100/80 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2 text-slate-400">
         {icon}
 
-        <span className="text-[10px] font-bold uppercase tracking-wider">
+        <span className="text-[9px] font-extrabold uppercase tracking-[0.16em]">
           {label}
         </span>
       </div>
 
-      <p className="mt-2 text-sm font-bold text-slate-900">{value}</p>
+      <p className="mt-2 text-sm font-black text-slate-900">{value}</p>
     </div>
   );
 }
@@ -1478,29 +1575,37 @@ function VehicleOption({ type, label, description, icon, selected, onClick }) {
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`relative rounded-2xl border p-4 text-left transition ${
+      className={`group relative rounded-2xl border p-3.5 text-left transition-all duration-200 ${
         selected
-          ? "border-white bg-white text-slate-950 shadow-lg"
-          : "border-slate-800 bg-slate-900 text-white hover:border-slate-600"
+          ? "border-white bg-white text-slate-950 shadow-xl shadow-black/10"
+          : "border-white/10 bg-white/[0.035] text-white hover:border-white/20 hover:bg-white/[0.06]"
       }`}
     >
       {selected && (
-        <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
-          <CheckCircle2 size={14} />
+        <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
+          <CheckCircle2 size={12} />
         </span>
       )}
 
       <div
-        className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-          selected ? "bg-slate-100" : "bg-slate-800"
+        className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+          selected
+            ? "bg-slate-100 text-slate-950"
+            : "bg-white/[0.07] text-slate-300"
         }`}
       >
         {icon}
       </div>
 
-      <p className="mt-3 text-sm font-bold">{label}</p>
+      <p className="mt-3 text-xs font-extrabold">{label}</p>
 
-      <p className="mt-1 text-[11px] text-slate-500">{description}</p>
+      <p
+        className={`mt-1 text-[10px] ${
+          selected ? "text-slate-500" : "text-slate-600"
+        }`}
+      >
+        {description}
+      </p>
 
       <span className="sr-only">Vehicle type: {type}</span>
     </button>
@@ -1509,25 +1614,35 @@ function VehicleOption({ type, label, description, icon, selected, onClick }) {
 
 function LocationResults({ results, onSelect }) {
   return (
-    <div className="absolute left-0 right-0 top-full z-[2000] mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
+    <div className="absolute left-0 right-0 top-full z-[2000] mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl shadow-black/30">
       {results.map((location) => (
         <button
           type="button"
           key={location.id}
           onClick={() => onSelect(location)}
-          className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-slate-800"
+          className="group flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/5"
         >
-          <MapPin size={17} className="mt-0.5 shrink-0 text-slate-400" />
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5">
+            <MapPin
+              size={15}
+              className="text-slate-400 group-hover:text-emerald-400"
+            />
+          </div>
 
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">
               {location.name}
             </p>
 
-            <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
               {location.displayName || "Bangladesh"}
             </p>
           </div>
+
+          <ChevronRight
+            size={14}
+            className="ml-auto mt-1 shrink-0 text-slate-700 group-hover:text-slate-400"
+          />
         </button>
       ))}
     </div>
@@ -1537,27 +1652,29 @@ function LocationResults({ results, onSelect }) {
 function SearchLoading() {
   return (
     <div className="absolute right-4 top-1/2 z-10 -translate-y-1/2">
-      <Loader2 size={17} className="animate-spin text-slate-500" />
+      <Loader2 size={16} className="animate-spin text-slate-500" />
     </div>
   );
 }
 
 function LocationCard({ label, value, color }) {
+  const emerald = color === "emerald";
+
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
       <div className="flex items-center gap-2">
-        <div
+        <span
           className={`h-2.5 w-2.5 rounded-full ${
-            color === "emerald" ? "bg-emerald-500" : "bg-red-500"
+            emerald ? "bg-emerald-500" : "bg-red-500"
           }`}
         />
 
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
           {label}
         </p>
       </div>
 
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-800">
+      <p className="mt-2 line-clamp-2 text-sm font-bold leading-6 text-slate-800">
         {value}
       </p>
     </div>
@@ -1566,42 +1683,50 @@ function LocationCard({ label, value, color }) {
 
 function RouteStat({ label, value }) {
   return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+    <div className="px-3 first:pl-0 last:pr-0">
+      <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-slate-500">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-bold text-white">{value}</p>
+      <p className="mt-1.5 text-sm font-black text-white">{value}</p>
     </div>
   );
 }
 
 function RideInfo({ label, value }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
-      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-slate-400">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-bold capitalize text-slate-900">
+      <p className="mt-1.5 truncate text-sm font-black capitalize text-slate-900">
         {value}
       </p>
     </div>
   );
 }
 
-function StatCard({ icon: Icon, label, value }) {
+function StatCard({ icon: Icon, label, value, description }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">{label}</p>
+    <div className="group rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+            {label}
+          </p>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
+          <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+            {value}
+          </p>
+
+          <p className="mt-1 text-[11px] text-slate-400">{description}</p>
+        </div>
+
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition group-hover:bg-slate-950 group-hover:text-white">
           <Icon size={17} />
         </div>
       </div>
-
-      <p className="mt-4 text-2xl font-bold">{value}</p>
     </div>
   );
 }
@@ -1609,85 +1734,98 @@ function StatCard({ icon: Icon, label, value }) {
 function RecentRide({ ride, onRate }) {
   const statusClass =
     ride.status === "completed"
-      ? "bg-emerald-50 text-emerald-700"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
       : ride.status === "cancelled"
-        ? "bg-red-50 text-red-700"
+        ? "bg-red-50 text-red-700 border-red-100"
         : ride.status === "accepted"
-          ? "bg-indigo-50 text-indigo-700"
-          : "bg-amber-50 text-amber-700";
+          ? "bg-indigo-50 text-indigo-700 border-indigo-100"
+          : "bg-amber-50 text-amber-700 border-amber-100";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div className="min-w-0">
+    <div className="group rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:p-6">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+        <div className="min-w-0 flex-1">
           <div className="flex items-start gap-3">
-            <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+            <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            </div>
 
-            <p className="text-sm font-bold leading-6 text-slate-900">
+            <p className="max-w-2xl text-sm font-bold leading-6 text-slate-900">
               {ride.pickup?.address || "Pickup"}
             </p>
           </div>
 
-          <div className="ml-1 mt-1 h-5 border-l border-dashed border-slate-300" />
+          <div className="ml-[13px] h-5 border-l border-dashed border-slate-300" />
 
           <div className="flex items-start gap-3">
-            <MapPin size={15} className="mt-1 shrink-0 text-red-500" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-50">
+              <MapPin size={13} className="text-red-500" />
+            </div>
 
-            <p className="text-sm font-bold leading-6 text-slate-900">
+            <p className="max-w-2xl text-sm font-bold leading-6 text-slate-900">
               {ride.destination?.address || "Destination"}
             </p>
           </div>
 
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-            <Clock3 size={13} />
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <Clock3 size={12} />
+              {formatRideDate(ride.createdAt || ride.requestedAt)}
+            </span>
 
-            {formatRideDate(ride.createdAt || ride.requestedAt)}
-          </div>
+            <span className="flex items-center gap-1.5">
+              <VehicleIcon type={ride.vehicleType} />
+              {formatVehicleType(ride.vehicleType)}
+            </span>
 
-          {ride.driver?.name && (
-            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-              <User size={13} />
-              Driver:{" "}
-              <span className="font-semibold text-slate-700">
-                {ride.driver.name}
+            {ride.driver?.name && (
+              <span className="flex items-center gap-1.5">
+                <User size={12} />
+                <span>Driver:</span>
+                <span className="font-bold text-slate-600">
+                  {ride.driver.name}
+                </span>
               </span>
-            </div>
-          )}
-
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-            <VehicleIcon type={ride.vehicleType} />
-
-            <span>{formatVehicleType(ride.vehicleType)}</span>
+            )}
           </div>
         </div>
 
-        <div className="text-left sm:text-right">
-          <span
-            className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${statusClass}`}
-          >
-            {formatStatus(ride.status)}
-          </span>
+        <div className="flex shrink-0 flex-row items-center justify-between gap-4 border-t border-slate-100 pt-4 sm:min-w-[150px] sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
+          <div className="text-left sm:text-right">
+            <span
+              className={`inline-flex rounded-full border px-3 py-1.5 text-[10px] font-extrabold ${statusClass}`}
+            >
+              {formatStatus(ride.status)}
+            </span>
 
-          <p className="mt-3 text-lg font-bold text-slate-950">
-            ৳
-            {Number(
-              ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0,
-            ).toFixed(0)}
-          </p>
+            <p className="mt-3 text-lg font-black text-slate-950">
+              ৳
+              {Number(
+                ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0,
+              ).toFixed(0)}
+            </p>
 
-          <p className="text-xs text-slate-400">
-            {safeDistance(ride.distanceKm)}
-          </p>
+            <p className="text-[10px] font-medium text-slate-400">
+              {safeDistance(ride.distanceKm)}
+            </p>
+          </div>
 
           {ride.status === "completed" && !ride.rating && (
             <button
               type="button"
               onClick={() => onRate?.(ride)}
-              className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-300"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-3.5 py-2.5 text-[10px] font-extrabold text-slate-950 shadow-sm transition hover:bg-amber-300"
             >
-              <Star size={14} className="fill-current" />
-              Rate Driver
+              <Star size={13} className="fill-current" />
+              Rate driver
             </button>
+          )}
+
+          {ride.status === "completed" && ride.rating && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500">
+              <Star size={13} className="fill-current" />
+              {ride.rating}/5
+            </div>
           )}
         </div>
       </div>
@@ -1712,17 +1850,19 @@ function RatingModal({
   onClose,
   onSubmit,
 }) {
+  const successful = ratingMessage?.toLowerCase().includes("thank");
+
   return (
-    <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md">
+      <div className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-[0_25px_80px_rgba(15,23,42,0.25)]">
         <div className="border-b border-slate-100 px-6 py-5 sm:px-7">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
                 Ride completed
               </p>
 
-              <h3 className="mt-1 text-2xl font-bold text-slate-950">
+              <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                 Rate your driver
               </h3>
             </div>
@@ -1731,26 +1871,26 @@ function RatingModal({
               type="button"
               onClick={onClose}
               disabled={ratingLoading}
-              className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-40"
+              className="rounded-xl p-2.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-950 disabled:opacity-40"
             >
-              <X size={20} />
+              <X size={19} />
             </button>
           </div>
         </div>
 
         <div className="p-6 sm:p-7">
-          <div className="rounded-2xl bg-slate-50 p-4">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
                 {getInitials(ride?.driver?.name || "Driver")}
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
                   Driver
                 </p>
 
-                <p className="mt-1 text-sm font-bold text-slate-900">
+                <p className="mt-1 text-sm font-black text-slate-900">
                   {ride?.driver?.name || "Your driver"}
                 </p>
               </div>
@@ -1758,12 +1898,12 @@ function RatingModal({
           </div>
 
           <div className="mt-7 text-center">
-            <p className="text-sm font-semibold text-slate-600">
+            <p className="text-sm font-bold text-slate-600">
               How was your ride?
             </p>
 
             <div
-              className="mt-4 flex justify-center gap-2"
+              className="mt-4 flex justify-center gap-1.5"
               role="radiogroup"
               aria-label="Driver rating"
             >
@@ -1775,10 +1915,11 @@ function RatingModal({
                   disabled={ratingLoading}
                   aria-label={`${star} star${star === 1 ? "" : "s"}`}
                   aria-pressed={selectedRating === star}
-                  className="rounded-xl p-1 transition hover:scale-110 disabled:opacity-50"
+                  className="rounded-xl p-1.5 transition hover:scale-110 disabled:opacity-50"
                 >
                   <Star
-                    size={36}
+                    size={34}
+                    strokeWidth={1.8}
                     className={
                       star <= selectedRating
                         ? "fill-amber-400 text-amber-400"
@@ -1789,15 +1930,15 @@ function RatingModal({
               ))}
             </div>
 
-            <p className="mt-2 text-xs font-bold text-slate-400">
+            <p className="mt-2 text-[11px] font-bold text-slate-400">
               {selectedRating === 0
-                ? "Select a rating"
+                ? "Tap a star to rate your experience"
                 : `${selectedRating} out of 5 stars`}
             </p>
           </div>
 
           <div className="mt-6">
-            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
               Comment{" "}
               <span className="font-normal normal-case">(optional)</span>
             </label>
@@ -1810,17 +1951,22 @@ function RatingModal({
               disabled={ratingLoading}
               rows={4}
               placeholder="Tell us about your ride..."
-              className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-400 focus:bg-white disabled:opacity-50"
+              className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-950/5 disabled:opacity-50"
             />
 
             <p className="mt-1 text-right text-[10px] text-slate-400">
-              {ratingComment.length}
-              /500
+              {ratingComment.length}/500
             </p>
           </div>
 
           {ratingMessage && (
-            <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+            <div
+              className={`mt-4 rounded-2xl px-4 py-3 text-xs font-bold ${
+                successful
+                  ? "border border-emerald-100 bg-emerald-50 text-emerald-700"
+                  : "border border-slate-100 bg-slate-50 text-slate-600"
+              }`}
+            >
               {ratingMessage}
             </div>
           )}
@@ -1829,17 +1975,17 @@ function RatingModal({
             type="button"
             onClick={onSubmit}
             disabled={ratingLoading || selectedRating === 0}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 py-4 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 py-4 text-sm font-extrabold text-white shadow-lg transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {ratingLoading ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={17} className="animate-spin" />
                 Submitting...
               </>
             ) : (
               <>
-                <Star size={18} className="fill-amber-400 text-amber-400" />
-                Submit Rating
+                <Star size={17} className="fill-amber-400 text-amber-400" />
+                Submit rating
               </>
             )}
           </button>
@@ -1853,13 +1999,19 @@ function SidebarItem({ icon: Icon, label, active = false }) {
   return (
     <button
       type="button"
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${
+      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition ${
         active
-          ? "bg-slate-950 text-white"
+          ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
           : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
       }`}
     >
-      <Icon size={18} />
+      <span
+        className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+          active ? "bg-white/10" : "bg-transparent group-hover:bg-white"
+        }`}
+      >
+        <Icon size={16} />
+      </span>
 
       {label}
     </button>
@@ -1948,17 +2100,11 @@ function formatStatus(status) {
 function getRideStatusLabel(status) {
   const labels = {
     requested: "Ride Requested",
-
     searching: "Finding Driver",
-
     accepted: "Driver Accepted",
-
     driver_arriving: "Driver Arriving",
-
     in_progress: "Ride In Progress",
-
     completed: "Ride Completed",
-
     cancelled: "Ride Cancelled",
   };
 
@@ -1968,17 +2114,11 @@ function getRideStatusLabel(status) {
 function getRideStatusDescription(status) {
   const descriptions = {
     requested: "Your ride request has been sent.",
-
     searching: "We're looking for an available driver.",
-
     accepted: "Your driver has accepted the ride.",
-
     driver_arriving: "Your driver is coming to the pickup location.",
-
     in_progress: "You are currently on your way.",
-
     completed: "You have reached your destination.",
-
     cancelled: "This ride has been cancelled.",
   };
 

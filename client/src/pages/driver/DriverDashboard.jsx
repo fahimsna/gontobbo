@@ -589,7 +589,7 @@ export default function DriverDashboard() {
   */
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] text-slate-950">
+    <div className="min-h-screen bg-[#f6f7f9] text-slate-950">
       {/* MOBILE OVERLAY */}
 
       {sidebarOpen && (
@@ -597,29 +597,29 @@ export default function DriverDashboard() {
           type="button"
           aria-label="Close menu"
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 z-[1050] bg-slate-950/50 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-[1050] bg-slate-950/55 backdrop-blur-[3px] lg:hidden"
         />
       )}
 
       {/* SIDEBAR */}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-[1100] flex w-[280px] flex-col border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-[1100] flex w-[272px] flex-col border-r border-slate-200/80 bg-white transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="flex h-[76px] items-center justify-between border-b border-slate-100 px-6">
+        {/* BRAND */}
+
+        <div className="flex h-[78px] items-center justify-between border-b border-slate-100 px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
-              <Navigation size={19} strokeWidth={2.5} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm">
+              <Navigation size={18} strokeWidth={2.5} />
             </div>
 
             <div>
-              <p className="text-[17px] font-extrabold tracking-tight">
-                Gontobbo
-              </p>
+              <p className="text-[17px] font-black tracking-tight">Gontobbo</p>
 
-              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
                 Driver Portal
               </p>
             </div>
@@ -630,13 +630,15 @@ export default function DriverDashboard() {
             onClick={() => setSidebarOpen(false)}
             className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden"
           >
-            <X size={19} />
+            <X size={18} />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4">
-          <p className="px-3 text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
-            Driver menu
+        {/* NAVIGATION */}
+
+        <nav className="flex-1 overflow-y-auto px-4 py-6">
+          <p className="px-3 text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
+            Workspace
           </p>
 
           <div className="mt-3 space-y-1">
@@ -647,7 +649,7 @@ export default function DriverDashboard() {
             <SidebarItem icon={Star} label="Ratings" />
           </div>
 
-          <p className="mt-8 px-3 text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+          <p className="mt-9 px-3 text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
             Account
           </p>
 
@@ -657,9 +659,11 @@ export default function DriverDashboard() {
           </div>
         </nav>
 
+        {/* USER */}
+
         <div className="border-t border-slate-100 p-4">
-          <div className="mb-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-extrabold text-white">
+          <div className="mb-3 flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-black text-white">
               {getInitials(user?.name)}
             </div>
 
@@ -668,7 +672,7 @@ export default function DriverDashboard() {
                 {user?.name || "Driver"}
               </p>
 
-              <p className="truncate text-[11px] text-slate-400">
+              <p className="truncate text-[10px] text-slate-400">
                 {user?.email}
               </p>
             </div>
@@ -677,9 +681,9 @@ export default function DriverDashboard() {
           <button
             type="button"
             onClick={logout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
           >
-            <LogOut size={16} />
+            <LogOut size={15} />
             Sign out
           </button>
         </div>
@@ -687,48 +691,50 @@ export default function DriverDashboard() {
 
       {/* MAIN */}
 
-      <main className="relative z-0 lg:pl-[280px]">
+      <main className="lg:pl-[272px]">
         {/* HEADER */}
 
-        <header className="sticky top-0 z-[1000] flex h-[76px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-[1000] flex h-[78px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="rounded-xl p-2 transition hover:bg-slate-100 lg:hidden"
+              className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 lg:hidden"
             >
-              <Menu size={22} />
+              <Menu size={21} />
             </button>
 
             <div>
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
                 Driver Portal
               </p>
 
-              <h1 className="mt-0.5 text-lg font-extrabold tracking-tight">
+              <h1 className="mt-0.5 text-lg font-black tracking-tight">
                 Dashboard
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* ONLINE INDICATOR */}
+
             <div
-              className={`hidden items-center gap-2 rounded-xl px-3.5 py-2.5 text-[11px] font-extrabold sm:flex ${
+              className={`hidden items-center gap-2 rounded-full border px-3.5 py-2 text-[10px] font-black sm:flex ${
                 online
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-slate-100 text-slate-500"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-slate-200 bg-slate-50 text-slate-500"
               }`}
             >
-              {online ? <Wifi size={14} /> : <WifiOff size={14} />}
-
-              {online ? "Online" : "Offline"}
-
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
                   online ? "animate-pulse bg-emerald-500" : "bg-slate-400"
                 }`}
               />
+
+              {online ? "ONLINE" : "OFFLINE"}
             </div>
+
+            {/* REFRESH */}
 
             <button
               type="button"
@@ -744,13 +750,17 @@ export default function DriverDashboard() {
               <span className="hidden sm:inline">Refresh</span>
             </button>
 
-            <div className="hidden text-right sm:block">
-              <p className="text-[10px] text-slate-400">Welcome back</p>
+            {/* USER */}
 
-              <p className="text-xs font-extrabold">{user?.name}</p>
+            <div className="hidden text-right sm:block">
+              <p className="text-[10px] font-medium text-slate-400">
+                Welcome back
+              </p>
+
+              <p className="text-xs font-black">{user?.name}</p>
             </div>
 
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-extrabold text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
               {getInitials(user?.name)}
             </div>
           </div>
@@ -758,23 +768,36 @@ export default function DriverDashboard() {
 
         {/* CONTENT */}
 
-        <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {/* WELCOME */}
+        <div className="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {/* HERO */}
 
           <section className="mb-7">
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-400">
-                  Ready for the road?
-                </p>
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      online ? "bg-emerald-500" : "bg-slate-400"
+                    }`}
+                  />
+                  Driver dashboard
+                </div>
 
-                <h2 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-[34px]">
-                  Good to see you, {user?.name?.split(" ")[0] || "Driver"}.
+                <h2 className="text-3xl font-black tracking-[-0.03em] sm:text-[38px]">
+                  Good to see you,{" "}
+                  <span className="text-slate-500">
+                    {user?.name?.split(" ")[0] || "Driver"}.
+                  </span>
                 </h2>
+
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                  Manage your availability, accept passenger requests, and keep
+                  your rides moving.
+                </p>
               </div>
 
               <div
-                className={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-[11px] font-extrabold ${
+                className={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2.5 text-[11px] font-black ${
                   online
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-slate-100 text-slate-500"
@@ -798,26 +821,32 @@ export default function DriverDashboard() {
           {statusMessage && (
             <div className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50">
                   <CheckCircle2 size={16} className="text-emerald-500" />
                 </div>
 
-                <p className="pt-1 text-sm font-semibold text-slate-700">
-                  {statusMessage}
-                </p>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                    Dashboard update
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold text-slate-700">
+                    {statusMessage}
+                  </p>
+                </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setStatusMessage("")}
-                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
           )}
 
-          {/* ONLINE STATUS */}
+          {/* AVAILABILITY */}
 
           <section
             className={`mb-7 overflow-hidden rounded-[28px] border bg-white shadow-sm ${
@@ -825,12 +854,12 @@ export default function DriverDashboard() {
             }`}
           >
             <div
-              className={`h-1.5 ${online ? "bg-emerald-500" : "bg-slate-300"}`}
+              className={`h-1 ${online ? "bg-emerald-500" : "bg-slate-300"}`}
             />
 
-            <div className="p-6 sm:p-8">
-              <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-5">
+            <div className="p-5 sm:p-7">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex items-start gap-4">
                   <div
                     className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
                       online
@@ -838,35 +867,37 @@ export default function DriverDashboard() {
                         : "bg-slate-100 text-slate-500"
                     }`}
                   >
-                    {online ? <Wifi size={25} /> : <WifiOff size={25} />}
+                    {online ? <Wifi size={23} /> : <WifiOff size={23} />}
                   </div>
 
                   <div>
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
-                      Driver availability
-                    </p>
-
-                    <div className="mt-1 flex items-center gap-2">
-                      <h3 className="text-xl font-extrabold sm:text-2xl">
-                        {online ? "You are Online" : "You are Offline"}
-                      </h3>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
+                        Availability
+                      </p>
 
                       <span
-                        className={`h-2.5 w-2.5 rounded-full ${
+                        className={`rounded-full px-2 py-0.5 text-[8px] font-black uppercase ${
                           online
-                            ? "animate-pulse bg-emerald-500"
-                            : "bg-slate-400"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-slate-100 text-slate-500"
                         }`}
-                      />
+                      >
+                        {online ? "Active" : "Paused"}
+                      </span>
                     </div>
 
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                    <h3 className="mt-1 text-xl font-black sm:text-2xl">
+                      {online ? "You are online" : "You are offline"}
+                    </h3>
+
+                    <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
                       {online
                         ? "Passengers can find you and new ride requests will appear automatically."
-                        : "Go online when you're ready to receive passenger requests."}
+                        : "Go online whenever you're ready to receive passenger requests."}
                     </p>
 
-                    <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-slate-400">
+                    <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-slate-400">
                       <span
                         className={`h-1.5 w-1.5 rounded-full ${
                           currentLocation ? "bg-emerald-500" : "bg-slate-300"
@@ -882,18 +913,18 @@ export default function DriverDashboard() {
                   type="button"
                   onClick={handleOnlineToggle}
                   disabled={statusUpdating}
-                  className={`flex min-h-[54px] min-w-[190px] items-center justify-center gap-3 rounded-2xl px-7 py-4 text-sm font-extrabold shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`flex min-h-[52px] min-w-[185px] items-center justify-center gap-2.5 rounded-2xl px-6 py-3.5 text-sm font-black shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                     online
-                      ? "bg-red-50 text-red-600 ring-1 ring-red-200 hover:bg-red-100"
+                      ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
                       : "bg-emerald-500 text-white hover:bg-emerald-400"
                   }`}
                 >
                   {statusUpdating ? (
-                    <Loader2 size={19} className="animate-spin" />
+                    <Loader2 size={18} className="animate-spin" />
                   ) : online ? (
-                    <WifiOff size={19} />
+                    <WifiOff size={18} />
                   ) : (
-                    <Wifi size={19} />
+                    <Wifi size={18} />
                   )}
 
                   {statusUpdating
@@ -904,7 +935,7 @@ export default function DriverDashboard() {
                 </button>
               </div>
 
-              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+              <div className="mt-6 grid gap-2 sm:grid-cols-3">
                 <AvailabilityItem
                   active={online}
                   label="Ride requests"
@@ -930,62 +961,81 @@ export default function DriverDashboard() {
 
           {/* STATS */}
 
-          <section className="mb-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="mb-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               icon={DollarSign}
               label="Today's earnings"
               value={`৳${todayEarnings.toFixed(0)}`}
+              accent="emerald"
             />
 
             <StatCard
               icon={Car}
               label="Today's rides"
               value={todayRides.length}
+              accent="blue"
             />
 
             <StatCard
               icon={Clock3}
               label="Completed rides"
               value={completedRides.length}
+              accent="slate"
             />
 
             <StatCard
               icon={Star}
               label="Driver rating"
-              value={user?.rating || "—"}
+              value={
+                user?.rating ? (
+                  <span className="flex items-center gap-1.5">
+                    {user.rating}
+                    <Star
+                      size={17}
+                      fill="currentColor"
+                      className="text-amber-400"
+                    />
+                  </span>
+                ) : (
+                  "—"
+                )
+              }
+              accent="amber"
             />
           </section>
 
           {/* ACTIVE RIDE */}
 
           {activeRide && (
-            <section className="mb-7 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-              <div className="bg-slate-950 px-6 py-6 text-white sm:px-8">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <section className="mb-7 overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+              {/* ACTIVE HEADER */}
+
+              <div className="bg-slate-950 px-5 py-6 text-white sm:px-7">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
 
-                      <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
                         Active ride
                       </p>
                     </div>
 
-                    <h3 className="mt-2 text-2xl font-extrabold">
+                    <h3 className="mt-2 text-2xl font-black">
                       {formatStatus(activeRide.status)}
                     </h3>
 
                     <p className="mt-1 text-sm text-slate-400">
-                      Passenger ride currently assigned to you.
+                      Your current passenger assignment.
                     </p>
                   </div>
 
-                  <div className="rounded-2xl bg-white/[0.07] px-5 py-3 md:text-right">
-                    <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">
-                      Fare
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 sm:min-w-[180px] lg:block lg:text-right">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                      Current fare
                     </p>
 
-                    <p className="mt-1 text-2xl font-extrabold">
+                    <p className="text-2xl font-black">
                       ৳
                       {Number(
                         activeRide.finalFare ??
@@ -998,51 +1048,48 @@ export default function DriverDashboard() {
                 </div>
               </div>
 
-              <div className="p-6 sm:p-8">
+              <div className="p-5 sm:p-7">
                 {/* PASSENGER */}
 
-                <div className="mb-6 rounded-2xl bg-slate-50 p-5">
-                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-sm font-extrabold text-white">
-                        {getInitials(
-                          activeRide.passenger?.name ||
-                            activeRide.user?.name ||
-                            "Passenger",
-                        )}
-                      </div>
-
-                      <div>
-                        <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
-                          Passenger
-                        </p>
-
-                        <h4 className="mt-1 text-base font-extrabold">
-                          {activeRide.passenger?.name ||
-                            activeRide.user?.name ||
-                            "Passenger"}
-                        </h4>
-                      </div>
+                <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
+                      {getInitials(
+                        activeRide.passenger?.name ||
+                          activeRide.user?.name ||
+                          "Passenger",
+                      )}
                     </div>
 
-                    {(activeRide.passenger?.phone ||
-                      activeRide.user?.phone) && (
-                      <a
-                        href={`tel:${
-                          activeRide.passenger?.phone || activeRide.user?.phone
-                        }`}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-emerald-400"
-                      >
-                        <Phone size={16} />
-                        Call passenger
-                      </a>
-                    )}
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                        Passenger
+                      </p>
+
+                      <h4 className="mt-1 text-base font-black">
+                        {activeRide.passenger?.name ||
+                          activeRide.user?.name ||
+                          "Passenger"}
+                      </h4>
+                    </div>
                   </div>
+
+                  {(activeRide.passenger?.phone || activeRide.user?.phone) && (
+                    <a
+                      href={`tel:${
+                        activeRide.passenger?.phone || activeRide.user?.phone
+                      }`}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-400"
+                    >
+                      <Phone size={15} />
+                      Call passenger
+                    </a>
+                  )}
                 </div>
 
                 {/* LOCATIONS */}
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <LocationCard
                     label="Pickup"
                     value={
@@ -1064,9 +1111,9 @@ export default function DriverDashboard() {
                   />
                 </div>
 
-                {/* RIDE INFO */}
+                {/* RIDE DETAILS */}
 
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <RideInfo
                     label="Vehicle"
                     value={formatVehicleType(activeRide.vehicleType)}
@@ -1095,7 +1142,7 @@ export default function DriverDashboard() {
 
                 {/* MAP */}
 
-                <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+                <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100">
                   <MapView
                     pickup={activeRide.pickup}
                     destination={activeRide.destination}
@@ -1106,7 +1153,7 @@ export default function DriverDashboard() {
 
                 {/* ACTION */}
 
-                <div className="mt-6">
+                <div className="mt-5">
                   {activeRide.status === "accepted" && (
                     <button
                       type="button"
@@ -1114,7 +1161,7 @@ export default function DriverDashboard() {
                       disabled={
                         actionRideId === (activeRide._id || activeRide.id)
                       }
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-extrabold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-black text-white transition hover:bg-blue-500 disabled:opacity-50"
                     >
                       {actionRideId === (activeRide._id || activeRide.id) ? (
                         <Loader2 size={18} className="animate-spin" />
@@ -1132,7 +1179,7 @@ export default function DriverDashboard() {
                       disabled={
                         actionRideId === (activeRide._id || activeRide.id)
                       }
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 py-4 text-sm font-extrabold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 py-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:opacity-50"
                     >
                       {actionRideId === (activeRide._id || activeRide.id) ? (
                         <Loader2 size={18} className="animate-spin" />
@@ -1150,7 +1197,7 @@ export default function DriverDashboard() {
                       disabled={
                         actionRideId === (activeRide._id || activeRide.id)
                       }
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-sm font-extrabold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white transition hover:bg-emerald-400 disabled:opacity-50"
                     >
                       {actionRideId === (activeRide._id || activeRide.id) ? (
                         <Loader2 size={18} className="animate-spin" />
@@ -1170,16 +1217,16 @@ export default function DriverDashboard() {
           <section className="mb-7">
             <div className="mb-4 flex items-end justify-between">
               <div>
-                <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
                   Incoming
                 </p>
 
-                <h3 className="mt-1 text-2xl font-extrabold tracking-tight">
+                <h3 className="mt-1 text-2xl font-black tracking-tight">
                   Ride requests
                 </h3>
               </div>
 
-              <div className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-extrabold text-slate-500">
+              <div className="rounded-full bg-white px-3.5 py-2 text-[10px] font-black text-slate-500 shadow-sm ring-1 ring-slate-200">
                 {availableRides.length} available
               </div>
             </div>
@@ -1187,14 +1234,14 @@ export default function DriverDashboard() {
             {!online ? (
               <EmptyState
                 icon={WifiOff}
-                title="You are offline"
-                description="Go online to receive passenger ride requests."
+                title="You're offline"
+                description="Go online to start receiving passenger ride requests."
                 action={
                   <button
                     type="button"
                     onClick={handleOnlineToggle}
                     disabled={statusUpdating}
-                    className="mx-auto mt-5 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                    className="mx-auto mt-5 flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-black text-white transition hover:bg-emerald-400 disabled:opacity-50"
                   >
                     {statusUpdating ? (
                       <Loader2 size={17} className="animate-spin" />
@@ -1208,18 +1255,18 @@ export default function DriverDashboard() {
             ) : loading ? (
               <EmptyState
                 icon={Loader2}
-                title="Loading ride requests"
+                title="Finding ride requests"
                 description="Checking for new passenger requests..."
                 spinning
               />
             ) : availableRides.length === 0 ? (
               <EmptyState
                 icon={Car}
-                title="No ride requests"
-                description="New passenger requests will appear here automatically."
+                title="No ride requests yet"
+                description="Stay online. New passenger requests will appear here automatically."
               />
             ) : (
-              <div className="grid gap-4">
+              <div className="grid gap-3">
                 {availableRides.map((ride) => (
                   <RequestCard
                     key={ride._id || ride.id}
@@ -1235,43 +1282,51 @@ export default function DriverDashboard() {
 
           {/* EARNINGS + ACTIVITY */}
 
-          <section className="mb-7 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+          <section className="mb-7 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             {/* EARNINGS */}
 
-            <div className="rounded-[28px] bg-slate-950 p-6 text-white sm:p-8">
-              <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-500">
-                Earnings
-              </p>
+            <div className="overflow-hidden rounded-[28px] bg-slate-950 p-6 text-white sm:p-7">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-500">
+                    Earnings
+                  </p>
 
-              <h3 className="mt-2 text-2xl font-extrabold">Your earnings</h3>
+                  <h3 className="mt-1 text-xl font-black">Your earnings</h3>
+                </div>
+
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.07]">
+                  <DollarSign size={18} className="text-slate-300" />
+                </div>
+              </div>
 
               <div className="mt-8">
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Total earnings
                 </p>
 
-                <p className="mt-2 text-4xl font-extrabold tracking-tight">
+                <p className="mt-1 text-4xl font-black tracking-tight">
                   ৳{totalEarnings.toFixed(0)}
                 </p>
               </div>
 
-              <div className="mt-8 grid grid-cols-2 gap-3">
+              <div className="mt-7 grid grid-cols-2 gap-2">
                 <div className="rounded-2xl bg-white/[0.06] p-4">
-                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
                     Today
                   </p>
 
-                  <p className="mt-2 text-xl font-extrabold">
+                  <p className="mt-2 text-xl font-black">
                     ৳{todayEarnings.toFixed(0)}
                   </p>
                 </div>
 
                 <div className="rounded-2xl bg-white/[0.06] p-4">
-                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
                     Trips
                   </p>
 
-                  <p className="mt-2 text-xl font-extrabold">
+                  <p className="mt-2 text-xl font-black">
                     {completedRides.length}
                   </p>
                 </div>
@@ -1280,27 +1335,37 @@ export default function DriverDashboard() {
 
             {/* ACTIVITY */}
 
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 sm:p-8">
-              <div className="mb-5">
-                <p className="text-[9px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
-                  Activity
-                </p>
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+              <div className="mb-5 flex items-end justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    Activity
+                  </p>
 
-                <h3 className="mt-1 text-xl font-extrabold">
-                  Recent completed rides
-                </h3>
+                  <h3 className="mt-1 text-xl font-black">
+                    Recent completed rides
+                  </h3>
+                </div>
+
+                <div className="hidden rounded-full bg-slate-50 px-3 py-1.5 text-[9px] font-black text-slate-400 sm:block">
+                  Latest 6
+                </div>
               </div>
 
               {completedRides.length === 0 ? (
-                <div className="rounded-2xl bg-slate-50 p-8 text-center">
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
                   <Clock3 size={22} className="mx-auto text-slate-400" />
 
-                  <p className="mt-3 text-sm font-semibold text-slate-500">
+                  <p className="mt-3 text-sm font-bold text-slate-500">
                     No completed rides yet.
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-400">
+                    Your completed trips will appear here.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {completedRides.slice(0, 6).map((ride) => (
                     <CompletedRide key={ride._id || ride.id} ride={ride} />
                   ))}
@@ -1325,32 +1390,34 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
   const busy = actionRideId === rideId;
 
   return (
-    <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-[1px] hover:shadow-md sm:p-6">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <div className="group rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-[1px] hover:border-slate-300 hover:shadow-md sm:p-5">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
         <div className="min-w-0 flex-1">
+          {/* TOP */}
+
           <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100">
-                <User size={18} className="text-slate-500" />
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                <User size={18} />
               </div>
 
-              <div>
-                <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">
                   Passenger
                 </p>
 
-                <p className="text-sm font-extrabold">
+                <p className="truncate text-sm font-black">
                   {ride.passenger?.name || ride.user?.name || "Passenger"}
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl bg-emerald-50 px-3 py-2 text-right">
-              <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600">
+            <div className="shrink-0 rounded-xl bg-emerald-50 px-3.5 py-2 text-right">
+              <p className="text-[8px] font-black uppercase tracking-wider text-emerald-600">
                 Fare
               </p>
 
-              <p className="text-lg font-extrabold text-emerald-700">
+              <p className="text-lg font-black text-emerald-700">
                 ৳
                 {Number(
                   ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0,
@@ -1359,7 +1426,9 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          {/* LOCATIONS */}
+
+          <div className="grid gap-2 md:grid-cols-2">
             <LocationCard
               label="Pickup"
               value={ride.pickup?.address || ride.pickup?.name || "Pickup"}
@@ -1376,6 +1445,8 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
               color="red"
             />
           </div>
+
+          {/* INFO */}
 
           <div className="mt-3 flex flex-wrap gap-2">
             <InfoPill
@@ -1395,12 +1466,14 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-3 lg:w-52 lg:flex-col">
+        {/* ACTIONS */}
+
+        <div className="flex shrink-0 gap-2 lg:w-[170px] lg:flex-col">
           <button
             type="button"
             onClick={() => onAccept(ride)}
             disabled={busy}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3.5 text-sm font-extrabold text-white transition hover:bg-emerald-400 disabled:opacity-50 lg:flex-none"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3.5 text-sm font-black text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
           >
             {busy ? (
               <Loader2 size={17} className="animate-spin" />
@@ -1414,7 +1487,7 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
             type="button"
             onClick={() => onReject(ride)}
             disabled={busy}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3.5 text-sm font-extrabold text-red-600 transition hover:bg-red-50 disabled:opacity-50 lg:flex-none"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3.5 text-sm font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
           >
             <XCircle size={17} />
             Reject
@@ -1433,31 +1506,35 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
 
 function CompletedRide({ ride }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:bg-slate-100">
+    <div className="group rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:border-slate-200 hover:bg-white">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
 
-            <p className="truncate text-sm font-extrabold">
+            <p className="truncate text-sm font-black">
               {ride.destination?.address || "Completed ride"}
             </p>
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+          <div className="mt-2 flex flex-wrap items-center gap-2.5 text-[10px] font-medium text-slate-400">
             <span>
               {formatRideDate(
                 ride.completedAt || ride.updatedAt || ride.createdAt,
               )}
             </span>
 
+            <span className="h-1 w-1 rounded-full bg-slate-300" />
+
             <span>{formatVehicleType(ride.vehicleType)}</span>
+
+            <span className="h-1 w-1 rounded-full bg-slate-300" />
 
             <span>{formatDistanceValue(ride.distanceKm)}</span>
           </div>
         </div>
 
-        <p className="shrink-0 text-lg font-extrabold">
+        <p className="shrink-0 text-lg font-black">
           ৳
           {Number(
             ride.finalFare ?? ride.estimatedFare ?? ride.fare ?? 0,
@@ -1482,7 +1559,7 @@ function EmptyState({
   spinning = false,
 }) {
   return (
-    <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center">
+    <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center sm:p-12">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
         <Icon
           size={23}
@@ -1490,7 +1567,7 @@ function EmptyState({
         />
       </div>
 
-      <h4 className="mt-4 font-extrabold">{title}</h4>
+      <h4 className="mt-4 text-sm font-black">{title}</h4>
 
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
         {description}
@@ -1509,20 +1586,20 @@ function EmptyState({
 
 function LocationCard({ label, value, color }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
       <div className="flex items-center gap-2">
         <span
-          className={`h-2.5 w-2.5 ${
+          className={`h-2 w-2 shrink-0 rounded-full ${
             color === "emerald" ? "bg-emerald-500" : "bg-red-500"
-          } rounded-full`}
+          }`}
         />
 
-        <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400">
           {label}
         </p>
       </div>
 
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-800">
+      <p className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-slate-800">
         {value}
       </p>
     </div>
@@ -1537,12 +1614,12 @@ function LocationCard({ label, value, color }) {
 
 function RideInfo({ label, value }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
-      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+    <div className="rounded-2xl bg-slate-50 p-3.5">
+      <p className="text-[8px] font-black uppercase tracking-wider text-slate-400">
         {label}
       </p>
 
-      <p className="mt-1 text-sm font-extrabold text-slate-900">{value}</p>
+      <p className="mt-1 text-sm font-black text-slate-900">{value}</p>
     </div>
   );
 }
@@ -1555,7 +1632,7 @@ function RideInfo({ label, value }) {
 
 function InfoPill({ icon, value }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-extrabold text-slate-600">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-black text-slate-600">
       {icon}
       {value}
     </span>
@@ -1570,18 +1647,18 @@ function InfoPill({ icon, value }) {
 
 function AvailabilityItem({ active, label, value }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+    <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
       <div className="flex items-center gap-2">
         <span
-          className={`h-2 w-2 rounded-full ${
+          className={`h-1.5 w-1.5 rounded-full ${
             active ? "bg-emerald-500" : "bg-slate-400"
           }`}
         />
 
-        <span className="text-xs font-semibold text-slate-500">{label}</span>
+        <span className="text-[11px] font-bold text-slate-500">{label}</span>
       </div>
 
-      <span className="text-xs font-extrabold text-slate-700">{value}</span>
+      <span className="text-[11px] font-black text-slate-700">{value}</span>
     </div>
   );
 }
@@ -1592,20 +1669,31 @@ function AvailabilityItem({ active, label, value }) {
 |--------------------------------------------------------------------------
 */
 
-function StatCard({ icon: Icon, label, value }) {
+function StatCard({ icon: Icon, label, value, accent = "slate" }) {
+  const iconClasses = {
+    emerald: "bg-emerald-50 text-emerald-600",
+    blue: "bg-blue-50 text-blue-600",
+    amber: "bg-amber-50 text-amber-600",
+    slate: "bg-slate-100 text-slate-500",
+  };
+
   return (
-    <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-[1px] hover:shadow-md">
-      <div className="flex items-center justify-between">
+    <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-[1px] hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-400">
             {label}
           </p>
 
-          <p className="mt-3 text-2xl font-extrabold tracking-tight">{value}</p>
+          <p className="mt-3 text-2xl font-black tracking-tight">{value}</p>
         </div>
 
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100">
-          <Icon size={19} className="text-slate-500" />
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+            iconClasses[accent]
+          }`}
+        >
+          <Icon size={18} />
         </div>
       </div>
     </div>
@@ -1622,7 +1710,7 @@ function SidebarItem({ icon: Icon, label, active = false }) {
   return (
     <button
       type="button"
-      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${
+      className={`group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-bold transition ${
         active
           ? "bg-slate-950 text-white shadow-sm"
           : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
