@@ -19,10 +19,14 @@ const PORT = process.env.PORT || 8009;
 // Middleware
 // ==========================================
 
+import cors from "cors";
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://YOUR-VERCEL-DOMAIN.vercel.app"],
+    origin: ["http://localhost:5173", "https://gontobbo-chi.vercel.app"],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
