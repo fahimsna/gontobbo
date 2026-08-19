@@ -564,12 +564,12 @@ const DriverApplication = () => {
             MAIN CARD
         ====================================================== */}
 
-        <div className="grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 lg:grid-cols-[0.9fr_1.1fr]">
           {/* =====================================================
               LEFT PANEL
           ====================================================== */}
 
-          <section className="relative overflow-hidden bg-slate-950 p-7 text-white sm:p-10 lg:min-h-[720px] xl:p-12">
+          <section className="relative overflow-hidden bg-slate-950 p-7 text-white sm:p-10 lg:min-h-180 xl:p-12">
             <div className="absolute -left-28 top-1/4 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
 
             <div className="absolute -bottom-32 -right-28 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
@@ -888,9 +888,9 @@ const DriverApplication = () => {
 const BackgroundDecorations = () => {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute -left-40 -top-40 h-[30rem] w-[30rem] rounded-full bg-emerald-500/10 blur-3xl" />
+      <div className="absolute -left-40 -top-40 h-120 w-120 rounded-full bg-emerald-500/10 blur-3xl" />
 
-      <div className="absolute -bottom-48 -right-40 h-[32rem] w-[32rem] rounded-full bg-cyan-500/10 blur-3xl" />
+      <div className="absolute -bottom-48 -right-40 h-128 w-lg rounded-full bg-cyan-500/10 blur-3xl" />
 
       <div
         className="absolute inset-0 opacity-[0.025]"
@@ -968,7 +968,7 @@ const VehicleButton = ({ active, value, label, icon: Icon, onClick }) => {
     <button
       type="button"
       onClick={() => onClick(value)}
-      className={`group flex min-h-[92px] flex-col items-center justify-center rounded-xl border transition-all duration-200 ${
+      className={`group flex min-h-23 flex-col items-center justify-center rounded-xl border transition-all duration-200 ${
         active
           ? "border-emerald-400 bg-emerald-50 text-emerald-700 ring-4 ring-emerald-500/10"
           : "border-slate-200 bg-slate-50 text-slate-500 hover:border-emerald-200 hover:bg-white hover:text-emerald-600"
@@ -1051,7 +1051,7 @@ const StatusPage = ({
           </Link>
         </header>
 
-        <div className="mx-auto max-w-2xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+        <div className="mx-auto max-w-2xl overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
           <div className="relative overflow-hidden bg-slate-950 px-6 py-10 text-center text-white sm:px-10 sm:py-14">
             <div className="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
 
