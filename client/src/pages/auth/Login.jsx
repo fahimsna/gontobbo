@@ -144,9 +144,9 @@ export default function Login() {
       {/* Background decoration */}
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-[30rem] w-[30rem] rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute -left-40 -top-40 h-120 w-120 rounded-full bg-emerald-500/10 blur-3xl" />
 
-        <div className="absolute -bottom-48 -right-40 h-[32rem] w-[32rem] rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute -bottom-48 -right-40 h-128 w-lg rounded-full bg-cyan-500/10 blur-3xl" />
 
         <div
           className="absolute inset-0 opacity-[0.025]"
@@ -159,12 +159,12 @@ export default function Login() {
       </div>
 
       <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl items-center justify-center">
-        <div className="grid w-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid w-full overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 lg:grid-cols-[0.9fr_1.1fr]">
           {/* =====================================================
               LEFT PANEL
           ====================================================== */}
 
-          <div className="relative hidden min-h-[680px] overflow-hidden bg-slate-950 p-10 text-white lg:block xl:p-12">
+          <div className="relative hidden min-h-170 overflow-hidden bg-slate-950 p-10 text-white lg:block xl:p-12">
             <div className="absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
 
             <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
