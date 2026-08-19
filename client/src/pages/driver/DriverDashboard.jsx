@@ -43,6 +43,7 @@ export default function DriverDashboard() {
   const { user, logout } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("dashboard");
 
   const [online, setOnline] = useState(user?.online ?? user?.isOnline ?? false);
 
@@ -324,6 +325,28 @@ export default function DriverDashboard() {
 
   /*
   |--------------------------------------------------------------------------
+  | SIDEBAR NAVIGATION
+  |--------------------------------------------------------------------------
+  */
+
+  const handleSidebarNavigation = (section) => {
+    setActiveSection(section);
+    setSidebarOpen(false);
+
+    window.setTimeout(() => {
+      const element = document.getElementById(section);
+
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 50);
+  };
+
+  /*
+  |--------------------------------------------------------------------------
   | ACCEPT
   |--------------------------------------------------------------------------
   */
@@ -584,6 +607,63 @@ export default function DriverDashboard() {
 
   /*
   |--------------------------------------------------------------------------
+  | AVERAGE RATING
+  |--------------------------------------------------------------------------
+  */
+
+  const averageRating = useMemo(() => {
+    const directRating =
+      user?.rating ??
+      user?.averageRating ??
+      user?.avgRating ??
+      user?.driverRating ??
+      user?.driver?.rating ??
+      user?.driver?.averageRating ??
+      user?.driver?.avgRating ??
+      user?.profile?.rating ??
+      user?.profile?.averageRating;
+
+    const numericDirectRating = Number(directRating);
+
+    if (
+      directRating !== undefined &&
+      directRating !== null &&
+      directRating !== "" &&
+      Number.isFinite(numericDirectRating) &&
+      numericDirectRating > 0
+    ) {
+      return Math.min(5, Math.max(0, numericDirectRating));
+    }
+
+    const ratings = completedRides
+      .map((ride) => {
+        const rating =
+          ride.rating ??
+          ride.driverRating ??
+          ride.passengerRating ??
+          ride.review?.rating ??
+          ride.review?.driverRating ??
+          ride.review?.driverRatingValue;
+
+        const number = Number(rating);
+
+        return Number.isFinite(number) && number > 0 && number <= 5
+          ? number
+          : null;
+      })
+      .filter((rating) => rating !== null);
+
+    if (ratings.length === 0) {
+      return null;
+    }
+
+    const total = ratings.reduce((sum, rating) => sum + rating, 0);
+
+    return total / ratings.length;
+  }, [user, completedRides]);
+
+  /*
+  |--------------------------------------------------------------------------
   | RENDER
   |--------------------------------------------------------------------------
   */
@@ -642,11 +722,40 @@ export default function DriverDashboard() {
           </p>
 
           <div className="mt-3 space-y-1">
-            <SidebarItem icon={Navigation} label="Dashboard" active />
-            <SidebarItem icon={Car} label="Ride Requests" />
-            <SidebarItem icon={Clock3} label="Ride History" />
-            <SidebarItem icon={DollarSign} label="Earnings" />
-            <SidebarItem icon={Star} label="Ratings" />
+            <SidebarItem
+              icon={Navigation}
+              label="Dashboard"
+              active={activeSection === "dashboard"}
+              onClick={() => handleSidebarNavigation("dashboard")}
+            />
+
+            <SidebarItem
+              icon={Car}
+              label="Ride Requests"
+              active={activeSection === "requests"}
+              onClick={() => handleSidebarNavigation("requests")}
+            />
+
+            <SidebarItem
+              icon={Clock3}
+              label="Ride History"
+              active={activeSection === "history"}
+              onClick={() => handleSidebarNavigation("history")}
+            />
+
+            <SidebarItem
+              icon={DollarSign}
+              label="Earnings"
+              active={activeSection === "earnings"}
+              onClick={() => handleSidebarNavigation("earnings")}
+            />
+
+            <SidebarItem
+              icon={Star}
+              label="Ratings"
+              active={activeSection === "ratings"}
+              onClick={() => handleSidebarNavigation("ratings")}
+            />
           </div>
 
           <p className="mt-9 px-3 text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -654,8 +763,19 @@ export default function DriverDashboard() {
           </p>
 
           <div className="mt-3 space-y-1">
-            <SidebarItem icon={ShieldCheck} label="Driver Verification" />
-            <SidebarItem icon={User} label="Profile" />
+            <SidebarItem
+              icon={ShieldCheck}
+              label="Driver Verification"
+              active={activeSection === "verification"}
+              onClick={() => handleSidebarNavigation("verification")}
+            />
+
+            <SidebarItem
+              icon={User}
+              label="Profile"
+              active={activeSection === "profile"}
+              onClick={() => handleSidebarNavigation("profile")}
+            />
           </div>
         </nav>
 
@@ -716,8 +836,6 @@ export default function DriverDashboard() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* ONLINE INDICATOR */}
-
             <div
               className={`hidden items-center gap-2 rounded-full border px-3.5 py-2 text-[10px] font-black sm:flex ${
                 online
@@ -734,8 +852,6 @@ export default function DriverDashboard() {
               {online ? "ONLINE" : "OFFLINE"}
             </div>
 
-            {/* REFRESH */}
-
             <button
               type="button"
               onClick={handleRefresh}
@@ -749,8 +865,6 @@ export default function DriverDashboard() {
 
               <span className="hidden sm:inline">Refresh</span>
             </button>
-
-            {/* USER */}
 
             <div className="hidden text-right sm:block">
               <p className="text-[10px] font-medium text-slate-400">
@@ -768,7 +882,10 @@ export default function DriverDashboard() {
 
         {/* CONTENT */}
 
-        <div className="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div
+          id="dashboard"
+          className="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+        >
           {/* HERO */}
 
           <section className="mb-7">
@@ -961,7 +1078,10 @@ export default function DriverDashboard() {
 
           {/* STATS */}
 
-          <section className="mb-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section
+            id="ratings"
+            className="mb-7 scroll-mt-24 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          >
             <StatCard
               icon={DollarSign}
               label="Today's earnings"
@@ -987,9 +1107,9 @@ export default function DriverDashboard() {
               icon={Star}
               label="Driver rating"
               value={
-                user?.rating ? (
+                averageRating !== null ? (
                   <span className="flex items-center gap-1.5">
-                    {user.rating}
+                    {averageRating.toFixed(1)}
                     <Star
                       size={17}
                       fill="currentColor"
@@ -997,7 +1117,7 @@ export default function DriverDashboard() {
                     />
                   </span>
                 ) : (
-                  "—"
+                  <span className="text-slate-400">No ratings yet</span>
                 )
               }
               accent="amber"
@@ -1008,8 +1128,6 @@ export default function DriverDashboard() {
 
           {activeRide && (
             <section className="mb-7 overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
-              {/* ACTIVE HEADER */}
-
               <div className="bg-slate-950 px-5 py-6 text-white sm:px-7">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                   <div>
@@ -1049,8 +1167,6 @@ export default function DriverDashboard() {
               </div>
 
               <div className="p-5 sm:p-7">
-                {/* PASSENGER */}
-
                 <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
@@ -1087,8 +1203,6 @@ export default function DriverDashboard() {
                   )}
                 </div>
 
-                {/* LOCATIONS */}
-
                 <div className="grid gap-3 md:grid-cols-2">
                   <LocationCard
                     label="Pickup"
@@ -1110,8 +1224,6 @@ export default function DriverDashboard() {
                     color="red"
                   />
                 </div>
-
-                {/* RIDE DETAILS */}
 
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <RideInfo
@@ -1140,8 +1252,6 @@ export default function DriverDashboard() {
                   />
                 </div>
 
-                {/* MAP */}
-
                 <div className="mt-5 overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100">
                   <MapView
                     pickup={activeRide.pickup}
@@ -1150,8 +1260,6 @@ export default function DriverDashboard() {
                     route={null}
                   />
                 </div>
-
-                {/* ACTION */}
 
                 <div className="mt-5">
                   {activeRide.status === "accepted" && (
@@ -1214,7 +1322,7 @@ export default function DriverDashboard() {
 
           {/* REQUESTS */}
 
-          <section className="mb-7">
+          <section id="requests" className="mb-7 scroll-mt-24">
             <div className="mb-4 flex items-end justify-between">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -1282,7 +1390,10 @@ export default function DriverDashboard() {
 
           {/* EARNINGS + ACTIVITY */}
 
-          <section className="mb-7 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+          <section
+            id="earnings"
+            className="mb-7 scroll-mt-24 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]"
+          >
             {/* EARNINGS */}
 
             <div className="overflow-hidden rounded-[28px] bg-slate-950 p-6 text-white sm:p-7">
@@ -1335,7 +1446,10 @@ export default function DriverDashboard() {
 
             {/* ACTIVITY */}
 
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+            <div
+              id="history"
+              className="scroll-mt-24 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
+            >
               <div className="mb-5 flex items-end justify-between">
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -1373,6 +1487,78 @@ export default function DriverDashboard() {
               )}
             </div>
           </section>
+
+          {/* ACCOUNT SECTIONS */}
+
+          <section className="grid gap-5 md:grid-cols-2">
+            {/* VERIFICATION */}
+
+            <div
+              id="verification"
+              className="scroll-mt-24 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <ShieldCheck size={19} />
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    Driver Verification
+                  </p>
+
+                  <h3 className="mt-1 text-xl font-black">
+                    Verification status
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Your driver account information and verification status.
+                  </p>
+
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700">
+                    <CheckCircle2 size={13} />
+                    Verified driver
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* PROFILE */}
+
+            <div
+              id="profile"
+              className="scroll-mt-24 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <User size={19} />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    Profile
+                  </p>
+
+                  <h3 className="mt-1 text-xl font-black">
+                    {user?.name || "Driver"}
+                  </h3>
+
+                  <p className="mt-2 truncate text-sm text-slate-500">
+                    {user?.email || "No email available"}
+                  </p>
+
+                  {user?.phone && (
+                    <p className="mt-1 text-sm text-slate-500">{user.phone}</p>
+                  )}
+
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-[10px] font-black text-slate-600">
+                    <User size={13} />
+                    Driver account
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </main>
     </div>
@@ -1393,8 +1579,6 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
     <div className="group rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-[1px] hover:border-slate-300 hover:shadow-md sm:p-5">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
         <div className="min-w-0 flex-1">
-          {/* TOP */}
-
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
@@ -1426,8 +1610,6 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
             </div>
           </div>
 
-          {/* LOCATIONS */}
-
           <div className="grid gap-2 md:grid-cols-2">
             <LocationCard
               label="Pickup"
@@ -1446,8 +1628,6 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
             />
           </div>
 
-          {/* INFO */}
-
           <div className="mt-3 flex flex-wrap gap-2">
             <InfoPill
               icon={<VehicleIcon type={ride.vehicleType} />}
@@ -1465,8 +1645,6 @@ function RequestCard({ ride, actionRideId, onAccept, onReject }) {
             />
           </div>
         </div>
-
-        {/* ACTIONS */}
 
         <div className="flex shrink-0 gap-2 lg:w-[170px] lg:flex-col">
           <button
@@ -1706,10 +1884,11 @@ function StatCard({ icon: Icon, label, value, accent = "slate" }) {
 |--------------------------------------------------------------------------
 */
 
-function SidebarItem({ icon: Icon, label, active = false }) {
+function SidebarItem({ icon: Icon, label, active = false, onClick }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={`group flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-bold transition ${
         active
           ? "bg-slate-950 text-white shadow-sm"
