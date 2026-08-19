@@ -8,46 +8,60 @@ const AuthContext = createContext(null);
 |--------------------------------------------------------------------------
 | CONFIGURATION
 |--------------------------------------------------------------------------
+|
+| Render/free-tier services can take several seconds to wake up after
+| being idle. The previous 8-second timeout was too aggressive.
+|
+| 30 seconds gives the backend enough time to wake up, connect to MongoDB,
+| and complete the authentication request.
+|
 */
 
-const AUTH_REQUEST_TIMEOUT = 8000;
+const AUTH_REQUEST_TIMEOUT = 30000;
 
 /*
 |--------------------------------------------------------------------------
 | REQUEST WITH TIMEOUT
 |--------------------------------------------------------------------------
 |
-| Axios already has a timeout in our api.js, but we also protect the
-| authentication restore process independently.
+| Axios already has its own timeout in api.js.
+|
+| This additional timeout specifically protects authentication requests.
+|
+| Unlike the previous Promise.race() implementation, this version also
+| attempts to CANCEL the actual Axios request when the timeout happens.
 |
 */
 
-function requestWithTimeout(request, timeout = AUTH_REQUEST_TIMEOUT) {
+async function requestWithTimeout(
+  requestFactory,
+  timeout = AUTH_REQUEST_TIMEOUT,
+) {
+  const controller = new AbortController();
+
   let timer = null;
 
-  const timeoutPromise = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      const error = new Error("Authentication request timed out.");
+  try {
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
 
-      error.code = "AUTH_REQUEST_TIMEOUT";
+        const error = new Error("Authentication request timed out.");
 
-      reject(error);
-    }, timeout);
-  });
+        error.code = "AUTH_REQUEST_TIMEOUT";
 
-  return Promise.race([
-    request.finally(() => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    }),
+        reject(error);
+      }, timeout);
+    });
 
-    timeoutPromise,
-  ]).finally(() => {
+    const requestPromise = requestFactory(controller.signal);
+
+    return await Promise.race([requestPromise, timeoutPromise]);
+  } finally {
     if (timer) {
       clearTimeout(timer);
     }
-  });
+  }
 }
 
 /*
@@ -62,8 +76,6 @@ export function AuthProvider({ children }) {
   | RESTORE SAVED USER IMMEDIATELY
   |--------------------------------------------------------------------------
   |
-  | This is important.
-  |
   | If the browser refreshes, the dashboard should not disappear while
   | the backend is being contacted.
   |
@@ -77,9 +89,7 @@ export function AuthProvider({ children }) {
         return null;
       }
 
-      const parsedUser = JSON.parse(savedUser);
-
-      return parsedUser;
+      return JSON.parse(savedUser);
     } catch (error) {
       console.error("Failed to restore saved user:", error);
 
@@ -94,12 +104,10 @@ export function AuthProvider({ children }) {
   | AUTH LOADING
   |--------------------------------------------------------------------------
   |
-  | IMPORTANT:
-  |
   | We start with FALSE.
   |
-  | The application must NOT block the dashboard while verifying a
-  | previously saved session.
+  | The application does not block the dashboard while a previously saved
+  | session is being verified.
   |
   */
 
@@ -112,10 +120,11 @@ export function AuthProvider({ children }) {
   |
   | This is separate from loading.
   |
-  | `loading` means the application itself is waiting for authentication.
+  | `loading`
+  |   Means the application itself is waiting for authentication.
   |
-  | `verifying` means we are quietly checking the saved token in the
-  | background.
+  | `verifying`
+  |   Means we are quietly checking the saved token in the background.
   |
   */
 
@@ -132,18 +141,18 @@ export function AuthProvider({ children }) {
 
     const restoreSession = async () => {
       /*
-        |--------------------------------------------------------------------------
-        | GET TOKEN
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | GET TOKEN
+      |--------------------------------------------------------------------------
+      */
 
       const token = localStorage.getItem("gontobbo_token");
 
       /*
-        |--------------------------------------------------------------------------
-        | NO TOKEN
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | NO TOKEN
+      |--------------------------------------------------------------------------
+      */
 
       if (!token) {
         if (!cancelled) {
@@ -156,10 +165,10 @@ export function AuthProvider({ children }) {
       }
 
       /*
-        |--------------------------------------------------------------------------
-        | BACKGROUND VERIFICATION
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | BACKGROUND VERIFICATION
+      |--------------------------------------------------------------------------
+      */
 
       if (!cancelled) {
         setVerifying(true);
@@ -167,12 +176,20 @@ export function AuthProvider({ children }) {
 
       try {
         /*
-          |--------------------------------------------------------------------------
-          | REQUEST CURRENT USER
-          |--------------------------------------------------------------------------
-          */
+        |--------------------------------------------------------------------------
+        | REQUEST CURRENT USER
+        |--------------------------------------------------------------------------
+        |
+        | Pass AbortController signal into Axios so the request can actually
+        | be cancelled if our 30-second authentication timeout is reached.
+        |
+        */
 
-        const response = await requestWithTimeout(api.get("/users/me"));
+        const response = await requestWithTimeout((signal) =>
+          api.get("/users/me", {
+            signal,
+          }),
+        );
 
         if (cancelled) {
           return;
@@ -181,10 +198,10 @@ export function AuthProvider({ children }) {
         const userData = response.data?.user || null;
 
         /*
-          |--------------------------------------------------------------------------
-          | INVALID SERVER RESPONSE
-          |--------------------------------------------------------------------------
-          */
+        |--------------------------------------------------------------------------
+        | INVALID SERVER RESPONSE
+        |--------------------------------------------------------------------------
+        */
 
         if (!userData) {
           console.warn(
@@ -192,7 +209,7 @@ export function AuthProvider({ children }) {
           );
 
           /*
-           * Keep saved user.
+           * Keep the saved user.
            *
            * Do NOT destroy the local session just because the server
            * response is incomplete.
@@ -202,10 +219,10 @@ export function AuthProvider({ children }) {
         }
 
         /*
-          |--------------------------------------------------------------------------
-          | UPDATE USER
-          |--------------------------------------------------------------------------
-          */
+        |--------------------------------------------------------------------------
+        | UPDATE USER
+        |--------------------------------------------------------------------------
+        */
 
         setUser(userData);
 
@@ -215,21 +232,39 @@ export function AuthProvider({ children }) {
           return;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | AUTH TIMEOUT
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+          error?.code === "AUTH_REQUEST_TIMEOUT" ||
+          error?.name === "AbortError" ||
+          error?.code === "ERR_CANCELED"
+        ) {
+          console.warn(
+            "Authentication verification timed out. Keeping saved user.",
+          );
+
+          return;
+        }
+
         console.error("Failed to restore authentication:", error);
 
         const status = error.response?.status;
 
         /*
-          |--------------------------------------------------------------------------
-          | 401
-          |--------------------------------------------------------------------------
-          |
-          | Token is invalid/expired.
-          |
-          | This is the ONLY normal situation where we destroy the saved
-          | authentication session.
-          |
-          */
+        |--------------------------------------------------------------------------
+        | 401
+        |--------------------------------------------------------------------------
+        |
+        | Token is invalid or expired.
+        |
+        | This is the ONLY normal situation where we destroy the saved
+        | authentication session.
+        |
+        */
 
         if (status === 401) {
           localStorage.removeItem("gontobbo_token");
@@ -242,16 +277,16 @@ export function AuthProvider({ children }) {
         }
 
         /*
-          |--------------------------------------------------------------------------
-          | 403
-          |--------------------------------------------------------------------------
-          |
-          | Keep the user.
-          |
-          | The backend may reject the request because of permissions,
-          | account state, driver status, etc.
-          |
-          */
+        |--------------------------------------------------------------------------
+        | 403
+        |--------------------------------------------------------------------------
+        |
+        | Keep the user.
+        |
+        | The backend may reject the request because of permissions,
+        | account state, driver status, etc.
+        |
+        */
 
         if (status === 403) {
           console.warn(
@@ -262,26 +297,14 @@ export function AuthProvider({ children }) {
         }
 
         /*
-          |--------------------------------------------------------------------------
-          | TIMEOUT
-          |--------------------------------------------------------------------------
-          */
-
-        if (error.code === "AUTH_REQUEST_TIMEOUT") {
-          console.warn("Session verification timed out. Keeping saved user.");
-
-          return;
-        }
-
-        /*
-          |--------------------------------------------------------------------------
-          | NETWORK / SERVER ERROR
-          |--------------------------------------------------------------------------
-          |
-          | Do not log the user out just because the backend is temporarily
-          | unavailable.
-          |
-          */
+        |--------------------------------------------------------------------------
+        | NETWORK / SERVER ERROR
+        |--------------------------------------------------------------------------
+        |
+        | Do not log the user out just because the backend is temporarily
+        | unavailable.
+        |
+        */
 
         console.warn("Session verification failed. Keeping saved user.");
       } finally {
@@ -289,10 +312,10 @@ export function AuthProvider({ children }) {
           setVerifying(false);
 
           /*
-            |--------------------------------------------------------------------------
-            | NEVER KEEP GLOBAL AUTH LOADING TRUE
-            |--------------------------------------------------------------------------
-            */
+          |--------------------------------------------------------------------------
+          | NEVER KEEP GLOBAL AUTH LOADING TRUE
+          |--------------------------------------------------------------------------
+          */
 
           setLoading(false);
         }
@@ -357,13 +380,15 @@ export function AuthProvider({ children }) {
   const register = async (registrationData) => {
     try {
       /*
-        |--------------------------------------------------------------------------
-        | REGISTER REQUEST
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | REGISTER REQUEST
+      |--------------------------------------------------------------------------
+      */
 
-      const response = await requestWithTimeout(
-        api.post("/auth/register", registrationData),
+      const response = await requestWithTimeout((signal) =>
+        api.post("/auth/register", registrationData, {
+          signal,
+        }),
       );
 
       const data = response.data;
@@ -373,10 +398,10 @@ export function AuthProvider({ children }) {
       const userData = data?.user;
 
       /*
-        |--------------------------------------------------------------------------
-        | VALIDATE RESPONSE
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | VALIDATE RESPONSE
+      |--------------------------------------------------------------------------
+      */
 
       if (!token || !userData) {
         throw new Error(
@@ -385,26 +410,26 @@ export function AuthProvider({ children }) {
       }
 
       /*
-        |--------------------------------------------------------------------------
-        | SAVE TOKEN
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | SAVE TOKEN
+      |--------------------------------------------------------------------------
+      */
 
       localStorage.setItem("gontobbo_token", token);
 
       /*
-        |--------------------------------------------------------------------------
-        | SAVE USER
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | SAVE USER
+      |--------------------------------------------------------------------------
+      */
 
       localStorage.setItem("gontobbo_user", JSON.stringify(userData));
 
       /*
-        |--------------------------------------------------------------------------
-        | UPDATE STATE
-        |--------------------------------------------------------------------------
-        */
+      |--------------------------------------------------------------------------
+      | UPDATE STATE
+      |--------------------------------------------------------------------------
+      */
 
       setUser(userData);
 
@@ -416,6 +441,14 @@ export function AuthProvider({ children }) {
       };
     } catch (error) {
       console.error("Registration error:", error);
+
+      if (
+        error?.code === "AUTH_REQUEST_TIMEOUT" ||
+        error?.name === "AbortError" ||
+        error?.code === "ERR_CANCELED"
+      ) {
+        throw new Error("Registration request timed out. Please try again.");
+      }
 
       const message =
         error.response?.data?.message ||
